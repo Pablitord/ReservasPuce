@@ -3,14 +3,24 @@
 {% block title %}Calendario - Reservas PUCE{% endblock %}
 
 {% block extra_css %}
-<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/main.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
 <style>
     #calendar {
         max-width: 1200px;
-        margin: 0 auto;
+        margin: 20px auto;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .space-selector {
         margin-bottom: 20px;
+        max-width: 1200px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .fc {
+        font-size: 1em;
     }
 </style>
 {% endblock %}
@@ -34,6 +44,37 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/main.min.js"></script>
-<script src="{{ url_for('static', filename='js/calendar.js') }}"></script>
+<!-- Cargar FullCalendar v6 directamente (versión global bundle que incluye todo) -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/es.global.min.js"></script>
+<script>
+    // Esperar a que FullCalendar esté disponible
+    function initCalendar() {
+        if (typeof FullCalendar === 'undefined') {
+            console.log('Esperando FullCalendar...');
+            setTimeout(initCalendar, 100);
+            return;
+        }
+        
+        console.log('FullCalendar disponible, cargando script del calendario...');
+        // Cargar el script del calendario
+        const script = document.createElement('script');
+        script.src = "{{ url_for('static', filename='js/calendar.js') }}";
+        script.onerror = function() {
+            console.error('Error cargando calendar.js');
+            const calendarEl = document.getElementById('calendar');
+            if (calendarEl) {
+                calendarEl.innerHTML = '<div class="alert alert-danger">Error al cargar el script del calendario.</div>';
+            }
+        };
+        document.head.appendChild(script);
+    }
+    
+    // Iniciar cuando la página esté lista
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCalendar);
+    } else {
+        initCalendar();
+    }
+</script>
 {% endblock %}

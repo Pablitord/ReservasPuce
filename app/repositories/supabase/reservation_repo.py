@@ -135,6 +135,21 @@ class ReservationRepository:
     def check_time_conflict(self, space_id: str, date: str, start_time: str, end_time: str, exclude_id: Optional[str] = None) -> bool:
         """Verifica si hay conflicto de horario"""
         try:
+            # Función auxiliar para convertir tiempo string a datetime para comparación
+            def time_to_datetime(time_str: str) -> datetime:
+                """Convierte un string de tiempo HH:MM:SS o HH:MM a datetime para comparación"""
+                if not time_str:
+                    return datetime.min
+                # Normalizar formato: puede venir como HH:MM:SS o HH:MM
+                parts = str(time_str).strip().split(':')
+                if len(parts) >= 2:
+                    hour = int(parts[0])
+                    minute = int(parts[1])
+                    # Crear datetime base para comparación
+                    base_date = datetime(2000, 1, 1)  # Fecha dummy para comparar solo horas
+                    return base_date.replace(hour=hour, minute=minute)
+                return datetime.min
+            
             # Obtener todas las reservas para el espacio y fecha
             query = self.client.table(self.table).select('*').eq('space_id', space_id).eq('date', date)
             if exclude_id:
@@ -150,14 +165,29 @@ class ReservationRepository:
             if not active_reservations:
                 return False
             
+            # Convertir los tiempos de la nueva reserva a datetime para comparación
+            new_start = time_to_datetime(start_time)
+            new_end = time_to_datetime(end_time)
+            
             # Verificar conflictos de horario
             for reservation in active_reservations:
-                res_start = reservation['start_time']
-                res_end = reservation['end_time']
-                # Verificar solapamiento (las horas son strings en formato HH:MM:SS)
-                if not (end_time <= res_start or start_time >= res_end):
+                res_start_str = reservation.get('start_time', '')
+                res_end_str = reservation.get('end_time', '')
+                
+                if not res_start_str or not res_end_str:
+                    continue
+                
+                res_start = time_to_datetime(res_start_str)
+                res_end = time_to_datetime(res_end_str)
+                
+                # Verificar solapamiento: hay conflicto si los intervalos se solapan
+                # Dos intervalos se solapan si: start1 < end2 AND start2 < end1
+                if new_start < res_end and res_start < new_end:
                     return True
+            
             return False
         except Exception as e:
             print(f"Error verificando conflicto de horario: {e}")
+            import traceback
+            traceback.print_exc()
             return True  # En caso de error, asumir conflicto por seguridad
