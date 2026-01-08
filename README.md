@@ -47,6 +47,8 @@ pip install -r requirements.txt
    SUPABASE_URL=https://tu-proyecto.supabase.co
    SUPABASE_KEY=tu-clave-supabase-aqui
    FLASK_DEBUG=True
+   HOST=127.0.0.1
+   PORT=500
    ```
 
 5. Configurar la base de datos:
@@ -84,7 +86,7 @@ ReservasPuce/
 
 Después de ejecutar el schema SQL, se crea un usuario administrador:
 - Email: `admin@puce.edu.ec`
-- Contraseña: `admin123` (¡Cambiar en producción!)
+- Contraseña: `admin123`
 
 ## Funcionalidades
 
