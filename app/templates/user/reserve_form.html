@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva Reserva - Reservas PUCE{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0"><i class="bi bi-plus-circle"></i> Nueva Reserva</h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('user.reserve') }}">
+                        <div class="mb-3">
+                            <label for="space_id" class="form-label">Espacio</label>
+                            <select class="form-select" id="space_id" name="space_id" required>
+                                <option value="">Seleccione un espacio</option>
+                                {% for space in spaces %}
+                                <option value="{{ space.id }}">
+                                    {{ space.name }} - {{ space.type|title }} (Capacidad: {{ space.capacity }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="date" class="form-label">Fecha</label>
+                                <input type="date" class="form-control" id="date" name="date" required min="{{ min_date }}">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="start_time" class="form-label">Hora de Inicio</label>
+                                <input type="time" class="form-control" id="start_time" name="start_time" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="end_time" class="form-label">Hora de Fin</label>
+                                <input type="time" class="form-control" id="end_time" name="end_time" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="justification" class="form-label">Justificación</label>
+                            <textarea class="form-control" id="justification" name="justification" rows="4" required placeholder="Describa el motivo de la reserva..."></textarea>
+                        </div>
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('user.calendar') }}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Enviar Solicitud
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Reservas PUCE{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0"><i class="bi bi-speedometer2"></i> Dashboard Administrativo</h2>
+        <a href="{{ url_for('admin.create_admin') }}" class="btn btn-success">
+            <i class="bi bi-person-plus"></i> Crear Administrador
+        </a>
+    </div>
+    
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Total Reservas</h5>
+                    <h2>{{ stats.total_reservations }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h5 class="card-title">Pendientes</h5>
+                    <h2>{{ stats.pending_reservations }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">Aprobadas</h5>
+                    <h2>{{ stats.approved_reservations }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-danger">
+                <div class="card-body">
+                    <h5 class="card-title">Rechazadas</h5>
+                    <h2>{{ stats.rejected_reservations }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Espacios</h5>
+                    <h2>{{ stats.total_spaces }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Usuarios</h5>
+                    <h2>{{ stats.total_users }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Reservas pendientes recientes -->
+    <div class="card">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0"><i class="bi bi-clock-history"></i> Reservas Pendientes Recientes</h5>
+        </div>
+        <div class="card-body">
+            {% if pending_reservations %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Espacio</th>
+                                <th>Estudiante</th>
+                                <th>Fecha</th>
+                                <th>Hora</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for reservation in pending_reservations %}
+                            <tr>
+                                <td>
+                                    {% if reservation.spaces %}
+                                        {{ reservation.spaces.name }}
+                                    {% else %}
+                                        Espacio
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if reservation.users %}
+                                        {{ reservation.users.name }}
+                                    {% elif reservation.user %}
+                                        {{ reservation.user.name }}
+                                    {% else %}
+                                        Usuario
+                                    {% endif %}
+                                </td>
+                                <td>{{ reservation.date }}</td>
+                                <td>{{ reservation.start_time }} - {{ reservation.end_time }}</td>
+                                <td>
+                                    <a href="{{ url_for('admin.reservation_detail', reservation_id=reservation.id) }}" class="btn btn-sm btn-info">
+                                        <i class="bi bi-eye"></i> Revisar
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('admin.reservations', status='pending') }}" class="btn btn-primary">
+                        Ver todas las reservas pendientes
+                    </a>
+                </div>
+            {% else %}
+                <p class="text-center text-muted">No hay reservas pendientes</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

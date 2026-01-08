@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle de Reserva - Reservas PUCE{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0"><i class="bi bi-file-text"></i> Detalle de Reserva</h3>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h5>Información del Espacio</h5>
+                        <hr>
+                        <p><strong>Espacio:</strong> 
+                            {% if reservation.spaces %}
+                                {% if reservation.spaces is mapping %}
+                                    {{ reservation.spaces.name }}
+                                {% elif reservation.spaces is iterable and reservation.spaces|length > 0 %}
+                                    {{ reservation.spaces[0].name }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">Cargando información del espacio...</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Tipo:</strong> 
+                            {% if reservation.spaces %}
+                                {% if reservation.spaces is mapping %}
+                                    {{ reservation.spaces.type|title }}
+                                {% elif reservation.spaces is iterable and reservation.spaces|length > 0 %}
+                                    {{ reservation.spaces[0].type|title }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </p>
+                        <p><strong>Capacidad:</strong> 
+                            {% if reservation.spaces %}
+                                {% if reservation.spaces is mapping %}
+                                    {{ reservation.spaces.capacity }} personas
+                                {% elif reservation.spaces is iterable and reservation.spaces|length > 0 %}
+                                    {{ reservation.spaces[0].capacity }} personas
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h5>Información del Estudiante</h5>
+                        <hr>
+                        <p><strong>Nombre:</strong> 
+                            {% if reservation.users %}
+                                {{ reservation.users.name }}
+                            {% elif reservation.user %}
+                                {{ reservation.user.name }}
+                            {% else %}
+                                <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Email:</strong> 
+                            {% if reservation.users %}
+                                {{ reservation.users.email }}
+                            {% elif reservation.user %}
+                                {{ reservation.user.email }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </p>
+                        <p><strong>ID Estudiante:</strong> 
+                            {% if reservation.users %}
+                                {{ reservation.users.student_id }}
+                            {% elif reservation.user %}
+                                {{ reservation.user.student_id }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h5>Detalles de la Reserva</h5>
+                        <hr>
+                        <p><strong>Fecha:</strong> {{ reservation.date }}</p>
+                        <p><strong>Hora:</strong> {{ reservation.start_time }} - {{ reservation.end_time }}</p>
+                        <p><strong>Estado:</strong> 
+                            {% if reservation.status == 'approved' %}
+                                <span class="badge bg-success">Aprobada</span>
+                            {% elif reservation.status == 'pending' %}
+                                <span class="badge bg-warning">Pendiente</span>
+                            {% else %}
+                                <span class="badge bg-danger">Rechazada</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Justificación:</strong></p>
+                        <div class="alert alert-light">
+                            {{ reservation.justification }}
+                        </div>
+                        <p><strong>Solicitada el:</strong> {{ reservation.created_at[:10] }} a las {{ reservation.created_at[11:16] }}</p>
+                    </div>
+                    
+                    {% if reservation.status == 'pending' %}
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <form method="POST" action="{{ url_for('admin.reject_reservation', reservation_id=reservation.id) }}" style="display: inline;">
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('¿Estás seguro de rechazar esta reserva?');">
+                                <i class="bi bi-x-circle"></i> Rechazar
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('admin.approve_reservation', reservation_id=reservation.id) }}" style="display: inline;">
+                            <button type="submit" class="btn btn-success" onclick="return confirm('¿Aprobar esta reserva?');">
+                                <i class="bi bi-check-circle"></i> Aprobar
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-4">
+                        <a href="{{ url_for('admin.reservations') }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Volver a Reservas
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+<li class="nav-item dropdown">
+    <a class="nav-link position-relative" href="#" id="notificationsDropdown" role="button" data-bs-toggle="dropdown">
+        <i class="bi bi-bell"></i>
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notificationBadge" style="display: none;">
+            0
+        </span>
+    </a>
+    <ul class="dropdown-menu dropdown-menu-end notification-dropdown" style="max-width: 350px; max-height: 400px; overflow-y: auto;">
+        <li><h6 class="dropdown-header">Notificaciones</h6></li>
+        <li><hr class="dropdown-divider"></li>
+        <li id="notificationsList">
+            <div class="text-center p-3">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+            </div>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item text-center" href="#" id="markAllRead">Marcar todas como leídas</a></li>
+    </ul>
+</li>
