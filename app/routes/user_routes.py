@@ -158,9 +158,9 @@ def get_reservations_api():
             'userName': user_name,
             'startTime': start_time[:5],  # Solo HH:MM para mostrar
             'endTime': end_time[:5],
-            'color': '#dc3545' if status == 'approved' else '#ffc107',
-            'backgroundColor': '#dc3545' if status == 'approved' else '#ffc107',
-            'borderColor': '#c82333' if status == 'approved' else '#e0a800',
+            'color': '#28a745' if status == 'approved' else '#ffc107',  # Verde para aprobadas
+            'backgroundColor': '#28a745' if status == 'approved' else '#ffc107',  # Verde para aprobadas
+            'borderColor': '#218838' if status == 'approved' else '#e0a800',  # Verde oscuro para borde
             'textColor': 'white',
             'extendedProps': {
                 'status': status,

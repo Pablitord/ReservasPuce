@@ -92,7 +92,7 @@ class ReservationService:
         
         return True, "Reserva aprobada exitosamente"
     
-    def reject_reservation(self, reservation_id: str, admin_id: str) -> tuple[bool, str]:
+    def reject_reservation(self, reservation_id: str, admin_id: str, rejection_reason: str = None) -> tuple[bool, str]:
         """Rechaza una reserva"""
         reservation = self.reservation_repo.get_reservation_by_id(reservation_id)
         if not reservation:
@@ -101,16 +101,31 @@ class ReservationService:
         if reservation['status'] != 'pending':
             return False, "Esta reserva ya fue procesada"
         
+        # Validar razón de rechazo
+        if not rejection_reason or len(rejection_reason.strip()) < 10:
+            return False, "Debes proporcionar una razón del rechazo de al menos 10 caracteres"
+        
         # Actualizar estado
         updated = self.reservation_repo.update_reservation_status(reservation_id, 'rejected', admin_id)
         if not updated:
             return False, "Error al rechazar la reserva"
         
-        # Notificar al usuario
+        # Obtener el nombre del espacio
+        space_name = 'el espacio'
+        if reservation.get('spaces'):
+            if isinstance(reservation.get('spaces'), dict):
+                space_name = reservation.get('spaces', {}).get('name', 'el espacio')
+            elif isinstance(reservation.get('spaces'), list) and len(reservation.get('spaces', [])) > 0:
+                space_name = reservation.get('spaces')[0].get('name', 'el espacio')
+        
+        # Crear mensaje con la razón
+        notification_message = f'Tu reserva para {space_name} ha sido rechazada.\n\nRazón: {rejection_reason.strip()}'
+        
+        # Notificar al usuario con la razón
         self.notification_repo.create_notification(
             user_id=reservation['user_id'],
             title='Reserva rechazada',
-            message=f'Tu reserva para {reservation.get("spaces", {}).get("name", "el espacio")} ha sido rechazada',
+            message=notification_message,
             type='error',
             link=f'/user/my_reservations/{reservation_id}'
         )

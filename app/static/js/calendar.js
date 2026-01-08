@@ -218,9 +218,9 @@ function loadReservations(fetchInfo, successCallback, failureCallback) {
                     allDay: true,  // CRÍTICO: debe ser allDay para vista de mes
                     start: eventDate,  // SOLO la fecha YYYY-MM-DD (sin hora, sin end)
                     // IMPORTANTE: NO incluir 'end' - esto hace que ocupe solo UN día
-                    color: event.color || '#dc3545',
-                    backgroundColor: event.backgroundColor || '#dc3545',
-                    borderColor: event.borderColor || '#c82333',
+                    color: event.color || '#28a745',  // Verde por defecto
+                    backgroundColor: event.backgroundColor || '#28a745',  // Verde por defecto
+                    borderColor: event.borderColor || '#218838',  // Verde oscuro para borde
                     textColor: event.textColor || 'white',
                     // Mantener toda la información original para tooltips
                     extendedProps: {

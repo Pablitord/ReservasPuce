@@ -96,7 +96,14 @@ def approve_reservation(reservation_id):
 @admin_required
 def reject_reservation(reservation_id):
     """Rechaza una reserva"""
-    success, message = reservation_service.reject_reservation(reservation_id, session['user_id'])
+    rejection_reason = request.form.get('rejection_reason', '').strip()
+    
+    # Validar que se proporcione una razón
+    if not rejection_reason or len(rejection_reason) < 10:
+        flash('Debes proporcionar una razón del rechazo de al menos 10 caracteres', 'error')
+        return redirect(url_for('admin.reservation_detail', reservation_id=reservation_id))
+    
+    success, message = reservation_service.reject_reservation(reservation_id, session['user_id'], rejection_reason)
     
     if success:
         flash(message, 'success')

@@ -110,11 +110,9 @@
                     
                     {% if reservation.status == 'pending' %}
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <form method="POST" action="{{ url_for('admin.reject_reservation', reservation_id=reservation.id) }}" style="display: inline;">
-                            <button type="submit" class="btn btn-danger" onclick="return confirm('¿Estás seguro de rechazar esta reserva?');">
-                                <i class="bi bi-x-circle"></i> Rechazar
-                            </button>
-                        </form>
+                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                            <i class="bi bi-x-circle"></i> Rechazar
+                        </button>
                         <form method="POST" action="{{ url_for('admin.approve_reservation', reservation_id=reservation.id) }}" style="display: inline;">
                             <button type="submit" class="btn btn-success" onclick="return confirm('¿Aprobar esta reserva?');">
                                 <i class="bi bi-check-circle"></i> Aprobar
@@ -133,4 +131,60 @@
         </div>
     </div>
 </div>
+
+<!-- Modal para rechazar reserva -->
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="rejectModalLabel">
+                    <i class="bi bi-exclamation-triangle"></i> Rechazar Reserva
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.reject_reservation', reservation_id=reservation.id) }}" id="rejectForm">
+                <div class="modal-body">
+                    <p class="mb-3">¿Estás seguro de rechazar esta reserva?</p>
+                    
+                    <div class="mb-3">
+                        <label for="rejection_reason" class="form-label">
+                            <strong>Razón del rechazo <span class="text-danger">*</span></strong>
+                        </label>
+                        <textarea 
+                            class="form-control" 
+                            id="rejection_reason" 
+                            name="rejection_reason" 
+                            rows="4" 
+                            required
+                            placeholder="Explica por qué se rechaza esta reserva (mínimo 10 caracteres)..."
+                            minlength="10"
+                        ></textarea>
+                        <div class="form-text">Este mensaje se enviará al usuario que solicitó la reserva.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-x-circle"></i> Confirmar Rechazo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Validar formulario antes de enviar
+document.getElementById('rejectForm').addEventListener('submit', function(e) {
+    const reason = document.getElementById('rejection_reason').value.trim();
+    if (reason.length < 10) {
+        e.preventDefault();
+        alert('Por favor, proporciona una razón del rechazo de al menos 10 caracteres.');
+        document.getElementById('rejection_reason').focus();
+        return false;
+    }
+});
+</script>
 {% endblock %}
