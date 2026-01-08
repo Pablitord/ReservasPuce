@@ -49,10 +49,10 @@ function loadNotifications() {
                     <li>
                         <a class="dropdown-item notification-item ${notification.read ? '' : 'fw-bold'}" href="${link}" data-notification-id="${notification.id}">
                             <div class="d-flex align-items-start">
-                                <i class="${icon} me-2"></i>
-                                <div class="flex-grow-1">
-                                    <div class="fw-bold">${notification.title}</div>
-                                    <small class="text-muted">${notification.message}</small>
+                                <i class="${icon} me-2 flex-shrink-0 mt-1"></i>
+                                <div class="flex-grow-1" style="min-width: 0; word-wrap: break-word; overflow-wrap: break-word;">
+                                    <div class="fw-bold mb-1" style="word-wrap: break-word; overflow-wrap: break-word;">${notification.title}</div>
+                                    <div class="text-muted mb-2" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.4;">${notification.message}</div>
                                     <div class="text-muted" style="font-size: 0.75rem;">${formatDate(notification.created_at)}</div>
                                 </div>
                             </div>

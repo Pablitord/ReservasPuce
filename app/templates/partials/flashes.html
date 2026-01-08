@@ -2,11 +2,33 @@
     {% if messages %}
         <div class="flashes-container">
             {% for category, message in messages %}
-                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show auto-dismiss" role="alert" data-dismiss-time="{{ 8 if category == 'error' else 5 }}">
                     {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
                 </div>
             {% endfor %}
         </div>
     {% endif %}
 {% endwith %}
+
+<script>
+// Ocultar mensajes flash automáticamente después de X segundos
+document.addEventListener('DOMContentLoaded', function() {
+    const alerts = document.querySelectorAll('.auto-dismiss');
+    alerts.forEach(function(alert) {
+        const dismissTime = parseInt(alert.getAttribute('data-dismiss-time')) || 5;
+        const timeout = setTimeout(function() {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        }, dismissTime * 1000);
+        
+        // Si el usuario cierra manualmente, cancelar el timeout
+        const closeButton = alert.querySelector('.btn-close');
+        if (closeButton) {
+            closeButton.addEventListener('click', function() {
+                clearTimeout(timeout);
+            });
+        }
+    });
+});
+</script>

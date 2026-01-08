@@ -39,6 +39,10 @@ body {
     border-bottom: 1px solid #e9ecef;
     padding: 10px 15px;
     transition: background-color 0.2s;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    text-overflow: ellipsis;
 }
 
 .notification-item:hover {
@@ -47,6 +51,23 @@ body {
 
 .notification-item .fw-bold {
     color: #212529;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.notification-item small {
+    display: block;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    line-height: 1.4;
+    margin-top: 4px;
+}
+
+.notification-item .flex-grow-1 {
+    min-width: 0; /* Permite que el contenedor se ajuste */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 /* Badge de notificaciones */
