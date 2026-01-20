@@ -2,6 +2,7 @@
 
 let calendar;
 let selectedSpaceId = '';
+let selectedFloor = '';
 
 // Inicializar inmediatamente cuando el script se carga (FullCalendar ya está listo)
 (function() {
@@ -40,6 +41,17 @@ let selectedSpaceId = '';
                     calendar.refetchEvents();
                 }
             });
+        }
+        
+        const floorSelect = document.getElementById('floorSelect');
+        if (floorSelect) {
+            floorSelect.addEventListener('change', function() {
+                selectedFloor = this.value;
+                if (calendar) {
+                    calendar.refetchEvents();
+                }
+            });
+            selectedFloor = floorSelect.value || '';
         }
     }
     
@@ -163,6 +175,9 @@ function loadReservations(fetchInfo, successCallback, failureCallback) {
     
     if (selectedSpaceId) {
         params.append('space_id', selectedSpaceId);
+    }
+    if (selectedFloor) {
+        params.append('floor', selectedFloor);
     }
     
     // Obtener reservas para el rango de fechas visible

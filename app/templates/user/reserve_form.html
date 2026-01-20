@@ -13,13 +13,30 @@
                 <div class="card-body">
                     <form method="POST" action="{{ url_for('user.reserve') }}">
                         <div class="mb-3">
+                            <label for="floorSelectReserve" class="form-label">Filtrar por piso</label>
+                            <select class="form-select" id="floorSelectReserve">
+                                <option value="">Todos los pisos</option>
+                                <option value="planta_baja">Planta baja</option>
+                                <option value="piso_1">Piso 1</option>
+                                <option value="piso_2">Piso 2</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
                             <label for="space_id" class="form-label">Espacio</label>
                             <select class="form-select" id="space_id" name="space_id" required>
                                 <option value="">Seleccione un espacio</option>
-                                {% for space in spaces %}
-                                <option value="{{ space.id }}">
-                                    {{ space.name }} - {{ space.type|title }} (Capacidad: {{ space.capacity }})
-                                </option>
+                                {% for group in spaces_by_floor %}
+                                <optgroup label="{{ group.label }}" data-floor="{{ group.key }}">
+                                    {% if group.spaces %}
+                                        {% for space in group.spaces %}
+                                        <option value="{{ space.id }}" data-floor="{{ space.resolved_floor or group.key }}">
+                                            {{ space.name }} - {{ space.type|title }} (Capacidad: {{ space.capacity }})
+                                        </option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="" disabled>(Sin espacios)</option>
+                                    {% endif %}
+                                </optgroup>
                                 {% endfor %}
                             </select>
                         </div>
@@ -55,4 +72,49 @@
         </div>
     </div>
 </div>
+<script>
+    (function() {
+        const floorSelect = document.getElementById('floorSelectReserve');
+        const spaceSelect = document.getElementById('space_id');
+        if (!floorSelect || !spaceSelect) {
+            return;
+        }
+        const groups = Array.from(spaceSelect.querySelectorAll('optgroup'));
+        const options = Array.from(spaceSelect.querySelectorAll('option'));
+
+        function applyFloorFilter() {
+            const selectedFloor = floorSelect.value;
+            options.forEach(option => {
+                if (option.value === '') {
+                    option.hidden = false;
+                    option.style.display = '';
+                    return;
+                }
+                const optionFloor = option.dataset.floor || '';
+                const shouldShow = !selectedFloor || selectedFloor === optionFloor;
+                option.hidden = !shouldShow;
+                option.style.display = shouldShow ? '' : 'none';
+            });
+
+            groups.forEach(group => {
+                const groupFloor = group.dataset.floor || '';
+                const groupMatches = !selectedFloor || selectedFloor === groupFloor;
+                const hasVisibleOption = Array.from(group.querySelectorAll('option'))
+                    .some(opt => !opt.hidden && opt.value !== '');
+                const shouldShow = groupMatches && hasVisibleOption;
+                group.hidden = !shouldShow;
+                group.disabled = !shouldShow;
+            });
+
+            const selectedOption = spaceSelect.options[spaceSelect.selectedIndex];
+            const optionFloor = selectedOption?.dataset?.floor || '';
+            if (selectedFloor && optionFloor && optionFloor !== selectedFloor) {
+                spaceSelect.value = '';
+            }
+        }
+
+        floorSelect.addEventListener('change', applyFloorFilter);
+        applyFloorFilter();
+    })();
+</script>
 {% endblock %}

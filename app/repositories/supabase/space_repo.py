@@ -37,12 +37,20 @@ class SpaceRepository:
             print(f"Error obteniendo espacios por tipo: {e}")
             return []
     
-    def create_space(self, name: str, type: str, capacity: int, description: str = '') -> Optional[Dict[str, Any]]:
+    def create_space(
+        self,
+        name: str,
+        type: str,
+        capacity: int,
+        description: str = '',
+        floor: str = 'planta_baja'
+    ) -> Optional[Dict[str, Any]]:
         """Crea un nuevo espacio"""
         try:
             data = {
                 'name': name,
                 'type': type,
+                'floor': floor,
                 'capacity': capacity,
                 'description': description
             }

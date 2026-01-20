@@ -11,8 +11,8 @@ space_service = SpaceService()
 @login_required
 def calendar():
     """Vista del calendario de reservas"""
-    spaces = space_service.get_all_spaces()
-    return render_template('user/calendar.html', spaces=spaces)
+    spaces_by_floor = space_service.get_spaces_grouped_by_floor()
+    return render_template('user/calendar.html', spaces_by_floor=spaces_by_floor)
 
 @user_bp.route('/reserve', methods=['GET', 'POST'])
 @login_required
@@ -28,16 +28,16 @@ def reserve():
         
         if not all([space_id, reservation_date, start_time, end_time, justification]):
             flash('Por favor completa todos los campos', 'error')
-            spaces = space_service.get_all_spaces()
+            spaces_by_floor = space_service.get_spaces_grouped_by_floor()
             min_date = date_module.today().isoformat()
-            return render_template('user/reserve_form.html', spaces=spaces, min_date=min_date)
+            return render_template('user/reserve_form.html', spaces_by_floor=spaces_by_floor, min_date=min_date)
         
         # Validar que end_time sea mayor que start_time
         if end_time <= start_time:
             flash('La hora de finalización debe ser mayor que la hora de inicio', 'error')
-            spaces = space_service.get_all_spaces()
+            spaces_by_floor = space_service.get_spaces_grouped_by_floor()
             min_date = date_module.today().isoformat()
-            return render_template('user/reserve_form.html', spaces=spaces, min_date=min_date)
+            return render_template('user/reserve_form.html', spaces_by_floor=spaces_by_floor, min_date=min_date)
         
         success, message, reservation = reservation_service.create_reservation(
             user_id=session['user_id'],
@@ -54,9 +54,9 @@ def reserve():
         else:
             flash(message, 'error')
     
-    spaces = space_service.get_all_spaces()
+    spaces_by_floor = space_service.get_spaces_grouped_by_floor()
     min_date = date_module.today().isoformat()  # Usar date_module en lugar de date
-    return render_template('user/reserve_form.html', spaces=spaces, min_date=min_date)
+    return render_template('user/reserve_form.html', spaces_by_floor=spaces_by_floor, min_date=min_date)
 
 @user_bp.route('/my_reservations')
 @login_required
@@ -86,6 +86,7 @@ def reservation_detail(reservation_id):
 def get_reservations_api():
     """API endpoint para obtener reservas (para el calendario) - muestra TODAS las reservas aprobadas"""
     space_id = request.args.get('space_id')
+    floor = request.args.get('floor')
     
     # Obtener TODAS las reservas aprobadas para el calendario general
     all_reservations = reservation_service.get_all_reservations()
@@ -96,6 +97,34 @@ def get_reservations_api():
     # Si se especifica un espacio, filtrar por espacio
     if space_id:
         visible_reservations = [r for r in visible_reservations if r.get('space_id') == space_id]
+    
+    def resolve_floor(reservation):
+        spaces = reservation.get('spaces')
+        space = None
+        if isinstance(spaces, dict):
+            space = spaces
+        elif isinstance(spaces, list) and spaces:
+            space = spaces[0]
+        if not space:
+            return None
+        floor_value = space.get('floor')
+        if floor_value:
+            return floor_value
+        name = (space.get('name') or '').upper()
+        if name.startswith('A-0'):
+            return 'planta_baja'
+        if name.startswith('A-1'):
+            return 'piso_1'
+        if name.startswith('A-2'):
+            return 'piso_2'
+        if (space.get('type') or '').lower() == 'auditorio':
+            return 'planta_baja'
+        return None
+    
+    if floor:
+        visible_reservations = [
+            r for r in visible_reservations if resolve_floor(r) == floor
+        ]
     
     # Formatear para el calendario
     events = []

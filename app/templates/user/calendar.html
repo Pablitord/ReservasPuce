@@ -30,13 +30,34 @@
     <h2 class="mb-4"><i class="bi bi-calendar3"></i> Calendario de Reservas</h2>
     
     <div class="space-selector">
-        <label for="spaceSelect" class="form-label">Seleccionar Espacio:</label>
-        <select id="spaceSelect" class="form-select">
-            <option value="">Todos los espacios</option>
-            {% for space in spaces %}
-            <option value="{{ space.id }}">{{ space.name }} ({{ space.type }})</option>
-            {% endfor %}
-        </select>
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label for="floorSelect" class="form-label">Filtrar por piso:</label>
+                <select id="floorSelect" class="form-select">
+                    <option value="">Todos los pisos</option>
+                    <option value="planta_baja">Planta baja</option>
+                    <option value="piso_1">Piso 1</option>
+                    <option value="piso_2">Piso 2</option>
+                </select>
+            </div>
+            <div class="col-md-8">
+                <label for="spaceSelect" class="form-label">Seleccionar Espacio:</label>
+                <select id="spaceSelect" class="form-select">
+                    <option value="">Todos los espacios</option>
+                    {% for group in spaces_by_floor %}
+                    <optgroup label="{{ group.label }}" data-floor="{{ group.key }}">
+                        {% if group.spaces %}
+                            {% for space in group.spaces %}
+                            <option value="{{ space.id }}" data-floor="{{ space.resolved_floor or group.key }}">{{ space.name }} ({{ space.type }})</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="" disabled>(Sin espacios)</option>
+                        {% endif %}
+                    </optgroup>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
     </div>
     
     <div id="calendar"></div>
@@ -76,5 +97,51 @@
     } else {
         initCalendar();
     }
+</script>
+<script>
+    (function() {
+        const floorSelect = document.getElementById('floorSelect');
+        const spaceSelect = document.getElementById('spaceSelect');
+        if (!floorSelect || !spaceSelect) {
+            return;
+        }
+        const groups = Array.from(spaceSelect.querySelectorAll('optgroup'));
+        const options = Array.from(spaceSelect.querySelectorAll('option'));
+
+        function applyFloorFilter() {
+            const selectedFloor = floorSelect.value;
+            options.forEach(option => {
+                if (option.value === '') {
+                    option.hidden = false;
+                    option.style.display = '';
+                    return;
+                }
+                const optionFloor = option.dataset.floor || '';
+                const shouldShow = !selectedFloor || selectedFloor === optionFloor;
+                option.hidden = !shouldShow;
+                option.style.display = shouldShow ? '' : 'none';
+            });
+
+            groups.forEach(group => {
+                const groupFloor = group.dataset.floor || '';
+                const groupMatches = !selectedFloor || selectedFloor === groupFloor;
+                const hasVisibleOption = Array.from(group.querySelectorAll('option'))
+                    .some(opt => !opt.hidden && opt.value !== '');
+                const shouldShow = groupMatches && hasVisibleOption;
+                group.hidden = !shouldShow;
+                group.disabled = !shouldShow;
+            });
+
+            const selectedOption = spaceSelect.options[spaceSelect.selectedIndex];
+            const optionFloor = selectedOption?.dataset?.floor || '';
+            if (selectedFloor && optionFloor && optionFloor !== selectedFloor) {
+                spaceSelect.value = '';
+                spaceSelect.dispatchEvent(new Event('change'));
+            }
+        }
+
+        floorSelect.addEventListener('change', applyFloorFilter);
+        applyFloorFilter();
+    })();
 </script>
 {% endblock %}
