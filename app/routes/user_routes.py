@@ -68,6 +68,87 @@ def my_reservations():
     reservations = reservation_service.get_user_reservations(session['user_id'])
     return render_template('user/my_reservations.html', reservations=reservations)
 
+@user_bp.route('/my_reservations/<reservation_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_reservation(reservation_id):
+    """Editar una reserva pendiente del usuario"""
+    from datetime import date as date_module
+    reservation = reservation_service.get_reservation_by_id(reservation_id)
+    if not reservation:
+        flash('Reserva no encontrada', 'error')
+        return redirect(url_for('user.my_reservations'))
+    if reservation.get('user_id') != session['user_id']:
+        flash('No tienes permisos para editar esta reserva', 'error')
+        return redirect(url_for('user.my_reservations'))
+    if reservation.get('status') != 'pending':
+        flash('Solo puedes editar reservas pendientes', 'error')
+        return redirect(url_for('user.reservation_detail', reservation_id=reservation_id))
+
+    if request.method == 'POST':
+        space_id = request.form.get('space_id')
+        reservation_date = request.form.get('date')
+        start_time = request.form.get('start_time')
+        end_time = request.form.get('end_time')
+        justification = request.form.get('justification')
+
+        if not all([space_id, reservation_date, start_time, end_time, justification]):
+            flash('Por favor completa todos los campos', 'error')
+            spaces_by_floor = space_service.get_spaces_grouped_by_floor()
+            min_date = date_module.today().isoformat()
+            return render_template(
+                'user/reserve_edit.html',
+                reservation=reservation,
+                spaces_by_floor=spaces_by_floor,
+                min_date=min_date,
+                selected_space_id=space_id,
+                selected_date=reservation_date,
+                selected_start=start_time,
+                selected_end=end_time,
+                justification_val=justification
+            )
+
+        if end_time <= start_time:
+            flash('La hora de finalización debe ser mayor que la hora de inicio', 'error')
+            spaces_by_floor = space_service.get_spaces_grouped_by_floor()
+            min_date = date_module.today().isoformat()
+            return render_template(
+                'user/reserve_edit.html',
+                reservation=reservation,
+                spaces_by_floor=spaces_by_floor,
+                min_date=min_date,
+                selected_space_id=space_id,
+                selected_date=reservation_date,
+                selected_start=start_time,
+                selected_end=end_time,
+                justification_val=justification
+            )
+
+        success, message, updated = reservation_service.update_reservation(
+            reservation_id=reservation_id,
+            user_id=session['user_id'],
+            space_id=space_id,
+            date=reservation_date,
+            start_time=start_time,
+            end_time=end_time,
+            justification=justification
+        )
+        flash(message, 'success' if success else 'error')
+        if success:
+            return redirect(url_for('user.reservation_detail', reservation_id=reservation_id))
+
+    spaces_by_floor = space_service.get_spaces_grouped_by_floor()
+    min_date = date_module.today().isoformat()
+    return render_template(
+        'user/reserve_edit.html',
+        reservation=reservation,
+        spaces_by_floor=spaces_by_floor,
+        min_date=min_date,
+        selected_space_id=reservation.get('space_id'),
+        selected_date=str(reservation.get('date')),
+        selected_start=str(reservation.get('start_time'))[:5] if reservation.get('start_time') else '',
+        selected_end=str(reservation.get('end_time'))[:5] if reservation.get('end_time') else '',
+        justification_val=reservation.get('justification', '')
+    )
 @user_bp.route('/my_reservations/<reservation_id>')
 @login_required
 def reservation_detail(reservation_id):

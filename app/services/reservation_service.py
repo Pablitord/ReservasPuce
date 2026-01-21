@@ -166,3 +166,66 @@ class ReservationService:
     def get_all_reservations(self) -> List[Dict[str, Any]]:
         """Obtiene todas las reservas"""
         return self.reservation_repo.get_all_reservations()
+
+    def update_reservation(
+        self,
+        reservation_id: str,
+        user_id: str,
+        space_id: str,
+        date: str,
+        start_time: str,
+        end_time: str,
+        justification: str
+    ) -> tuple[bool, str, Optional[Dict[str, Any]]]:
+        """Permite editar una reserva pendiente del propio usuario"""
+        # Obtener la reserva y validar propietario/estado
+        reservation = self.reservation_repo.get_reservation_by_id(reservation_id)
+        if not reservation:
+            return False, "Reserva no encontrada", None
+        if reservation.get('user_id') != user_id:
+            return False, "No tienes permisos para editar esta reserva", None
+        if reservation.get('status') != 'pending':
+            return False, "Solo puedes editar reservas pendientes", None
+
+        # Validar fecha futura
+        try:
+            reservation_date = datetime.strptime(date, '%Y-%m-%d').date()
+            if reservation_date < date_module.today():
+                return False, "No puedes reservar fechas pasadas", None
+        except ValueError:
+            return False, "Fecha inválida", None
+
+        # Validar clase
+        class_conflict = self.class_schedule_service.find_conflict_with_class(
+            space_id, date, start_time, end_time
+        )
+        if class_conflict:
+            conflict_start = str(class_conflict.get('start_time'))[:5]
+            conflict_end = str(class_conflict.get('end_time'))[:5]
+            return (
+                False,
+                f"El aula está ocupada por clases de {conflict_start} a {conflict_end}.",
+                None,
+            )
+
+        # Validar conflicto con otras reservas (excluyendo la propia)
+        if self.reservation_repo.check_time_conflict(space_id, date, start_time, end_time, exclude_id=reservation_id):
+            return False, "Ya existe una reserva en ese horario para este espacio", None
+
+        updated = self.reservation_repo.update_reservation(
+            reservation_id, user_id, space_id, date, start_time, end_time, justification
+        )
+        if not updated:
+            return False, "No se pudo actualizar la reserva", None
+
+        return True, "Reserva actualizada", updated
+
+    def delete_reservation_admin(self, reservation_id: str) -> tuple[bool, str]:
+        """Elimina una reserva (solo admin)"""
+        reservation = self.reservation_repo.get_reservation_by_id(reservation_id)
+        if not reservation:
+            return False, "Reserva no encontrada"
+        deleted = self.reservation_repo.delete_reservation(reservation_id)
+        if not deleted:
+            return False, "No se pudo eliminar la reserva"
+        return True, "Reserva eliminada"

@@ -129,9 +129,43 @@
                         <a href="{{ url_for('admin.reservations') }}" class="btn btn-secondary">
                             <i class="bi bi-arrow-left"></i> Volver a Reservas
                         </a>
+                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                            <i class="bi bi-trash"></i> Eliminar
+                        </button>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para eliminar reserva -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="bi bi-exclamation-octagon"></i> Eliminar Reserva
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.delete_reservation', reservation_id=reservation.id) }}" id="deleteForm">
+                <div class="modal-body">
+                    <p class="mb-3">Esta acción no se puede deshacer. Proporciona una justificación:</p>
+                    <div class="mb-3">
+                        <label for="delete_reason" class="form-label">Justificación <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="delete_reason" name="delete_reason" rows="3" required minlength="5" placeholder="Indica el motivo para eliminar la reserva..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Eliminar
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

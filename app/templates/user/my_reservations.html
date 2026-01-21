@@ -60,6 +60,11 @@
                             <a href="{{ url_for('user.reservation_detail', reservation_id=reservation.id) }}" class="btn btn-sm btn-info">
                                 <i class="bi bi-eye"></i> Ver
                             </a>
+                            {% if reservation.status == 'pending' %}
+                            <a href="{{ url_for('user.edit_reservation', reservation_id=reservation.id) }}" class="btn btn-sm btn-warning">
+                                <i class="bi bi-pencil"></i> Editar
+                            </a>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}

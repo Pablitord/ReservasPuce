@@ -116,6 +116,22 @@ def reject_reservation(reservation_id):
     
     return redirect(url_for('admin.reservation_detail', reservation_id=reservation_id))
 
+@admin_bp.route('/reservations/<reservation_id>/delete', methods=['POST'])
+@admin_required
+def delete_reservation(reservation_id):
+    """Elimina una reserva (admin)"""
+    reason = request.form.get('delete_reason', '').strip()
+    if not reason or len(reason) < 5:
+        flash('Proporciona una justificación (mínimo 5 caracteres) para eliminar la reserva.', 'error')
+        return redirect(url_for('admin.reservation_detail', reservation_id=reservation_id))
+    success, message = reservation_service.delete_reservation_admin(reservation_id)
+    # Podríamos almacenar la razón en logs/notifications si se desea, por ahora solo mensaje.
+    if success:
+        flash(f'{message}. Motivo: {reason}', 'success')
+    else:
+        flash(message, 'error')
+    return redirect(url_for('admin.reservations'))
+
 @admin_bp.route('/create_admin', methods=['GET', 'POST'])
 @admin_required
 def create_admin():

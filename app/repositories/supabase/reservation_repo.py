@@ -191,3 +191,47 @@ class ReservationRepository:
             import traceback
             traceback.print_exc()
             return True  # En caso de error, asumir conflicto por seguridad
+
+    def update_reservation(
+        self,
+        reservation_id: str,
+        user_id: str,
+        space_id: str,
+        date: str,
+        start_time: str,
+        end_time: str,
+        justification: str
+    ) -> Optional[Dict[str, Any]]:
+        """Actualiza una reserva pendiente (solo campos editables)"""
+        try:
+            data = {
+                'space_id': space_id,
+                'date': date,
+                'start_time': start_time,
+                'end_time': end_time,
+                'justification': justification,
+                'updated_at': datetime.now().isoformat()
+            }
+            response = (
+                self.client.table(self.table)
+                .update(data)
+                .eq('id', reservation_id)
+                .eq('user_id', user_id)
+                .eq('status', 'pending')
+                .execute()
+            )
+            if response.data:
+                return response.data[0]
+            return None
+        except Exception as e:
+            print(f"Error actualizando reserva: {e}")
+            return None
+
+    def delete_reservation(self, reservation_id: str) -> bool:
+        """Elimina una reserva (admin)"""
+        try:
+            response = self.client.table(self.table).delete().eq('id', reservation_id).execute()
+            return bool(response.data is not None)
+        except Exception as e:
+            print(f"Error eliminando reserva: {e}")
+            return False
