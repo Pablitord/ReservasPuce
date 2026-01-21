@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS spaces (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     type VARCHAR(50) NOT NULL CHECK (type IN ('aula', 'laboratorio', 'auditorio')),
+    lab_category VARCHAR(20),
+    CONSTRAINT chk_lab_category CHECK (
+        lab_category IS NULL OR lab_category IN ('computacion', 'medicina')
+    ),
     floor VARCHAR(20) NOT NULL DEFAULT 'planta_baja' CHECK (floor IN ('planta_baja', 'piso_1', 'piso_2')),
     capacity INTEGER NOT NULL,
     description TEXT,

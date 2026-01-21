@@ -14,41 +14,45 @@
                     <div class="mb-4">
                         <h5>Información del Espacio</h5>
                         <hr>
+                        {% if reservation.spaces %}
+                            {% if reservation.spaces is mapping %}
+                                {% set space_obj = reservation.spaces %}
+                            {% elif reservation.spaces is iterable and reservation.spaces|length > 0 %}
+                                {% set space_obj = reservation.spaces[0] %}
+                            {% else %}
+                                {% set space_obj = None %}
+                            {% endif %}
+                        {% else %}
+                            {% set space_obj = None %}
+                        {% endif %}
                         <p><strong>Espacio:</strong> 
-                            {% if reservation.spaces %}
-                                {% if reservation.spaces is mapping %}
-                                    {{ reservation.spaces.name }}
-                                {% elif reservation.spaces is iterable and reservation.spaces|length > 0 %}
-                                    {{ reservation.spaces[0].name }}
-                                {% else %}
-                                    N/A
-                                {% endif %}
+                            {% if space_obj %}
+                                {{ space_obj.name }}
                             {% else %}
                                 <span class="text-muted">Cargando información del espacio...</span>
                             {% endif %}
                         </p>
                         <p><strong>Tipo:</strong> 
-                            {% if reservation.spaces %}
-                                {% if reservation.spaces is mapping %}
-                                    {{ reservation.spaces.type|title }}
-                                {% elif reservation.spaces is iterable and reservation.spaces|length > 0 %}
-                                    {{ reservation.spaces[0].type|title }}
+                            {% if space_obj %}
+                                {% set lab_cat = space_obj.lab_category %}
+                                {% if space_obj.type == 'laboratorio' and lab_cat %}
+                                    {% if lab_cat == 'computacion' %}
+                                        Laboratorio (Computación)
+                                    {% elif lab_cat == 'medicina' %}
+                                        Laboratorio (Medicina)
+                                    {% else %}
+                                        Laboratorio
+                                    {% endif %}
                                 {% else %}
-                                    N/A
+                                    {{ space_obj.type|title }}
                                 {% endif %}
                             {% else %}
                                 N/A
                             {% endif %}
                         </p>
                         <p><strong>Capacidad:</strong> 
-                            {% if reservation.spaces %}
-                                {% if reservation.spaces is mapping %}
-                                    {{ reservation.spaces.capacity }} personas
-                                {% elif reservation.spaces is iterable and reservation.spaces|length > 0 %}
-                                    {{ reservation.spaces[0].capacity }} personas
-                                {% else %}
-                                    N/A
-                                {% endif %}
+                            {% if space_obj %}
+                                {{ space_obj.capacity }} personas
                             {% else %}
                                 N/A
                             {% endif %}

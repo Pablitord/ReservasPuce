@@ -23,7 +23,24 @@
                     <tr>
                         <td>
                             {% if reservation.spaces %}
-                                {{ reservation.spaces.name }}
+                                {% set space_obj = reservation.spaces if reservation.spaces is mapping else (reservation.spaces[0] if reservation.spaces is iterable and reservation.spaces|length > 0 else None) %}
+                                {% if space_obj %}
+                                    {% set lab_cat = space_obj.lab_category %}
+                                    {% if space_obj.type == 'laboratorio' and lab_cat %}
+                                        {% if lab_cat == 'computacion' %}
+                                            {% set type_label = 'Laboratorio (Computación)' %}
+                                        {% elif lab_cat == 'medicina' %}
+                                            {% set type_label = 'Laboratorio (Medicina)' %}
+                                        {% else %}
+                                            {% set type_label = 'Laboratorio' %}
+                                        {% endif %}
+                                        {{ space_obj.name }} - {{ type_label }}
+                                    {% else %}
+                                        {{ space_obj.name }}
+                                    {% endif %}
+                                {% else %}
+                                    Espacio
+                                {% endif %}
                             {% else %}
                                 Espacio
                             {% endif %}

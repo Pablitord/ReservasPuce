@@ -45,7 +45,30 @@
                             <tr>
                                 <td>
                                     {% if reservation.spaces %}
-                                        {{ reservation.spaces.name }} ({{ reservation.spaces.type }})
+                                        {% if reservation.spaces is mapping %}
+                                            {% set space_obj = reservation.spaces %}
+                                        {% elif reservation.spaces is iterable and reservation.spaces|length > 0 %}
+                                            {% set space_obj = reservation.spaces[0] %}
+                                        {% else %}
+                                            {% set space_obj = None %}
+                                        {% endif %}
+                                        {% if space_obj %}
+                                            {% set lab_cat = space_obj.lab_category %}
+                                            {% if space_obj.type == 'laboratorio' and lab_cat %}
+                                                {% if lab_cat == 'computacion' %}
+                                                    {% set type_label = 'Laboratorio (Computación)' %}
+                                                {% elif lab_cat == 'medicina' %}
+                                                    {% set type_label = 'Laboratorio (Medicina)' %}
+                                                {% else %}
+                                                    {% set type_label = 'Laboratorio' %}
+                                                {% endif %}
+                                            {% else %}
+                                                {% set type_label = space_obj.type|title %}
+                                            {% endif %}
+                                            {{ space_obj.name }} ({{ type_label }})
+                                        {% else %}
+                                            Espacio
+                                        {% endif %}
                                     {% else %}
                                         Espacio
                                     {% endif %}

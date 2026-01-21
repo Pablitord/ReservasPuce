@@ -14,16 +14,38 @@
                     <div class="mb-4">
                         <h5>Información del Espacio</h5>
                         <hr>
+                        {% if reservation.spaces %}
+                            {% if reservation.spaces is mapping %}
+                                {% set space_obj = reservation.spaces %}
+                            {% elif reservation.spaces is iterable and reservation.spaces|length > 0 %}
+                                {% set space_obj = reservation.spaces[0] %}
+                            {% else %}
+                                {% set space_obj = None %}
+                            {% endif %}
+                        {% else %}
+                            {% set space_obj = None %}
+                        {% endif %}
                         <p><strong>Espacio:</strong> 
-                            {% if reservation.spaces %}
-                                {{ reservation.spaces.name }}
+                            {% if space_obj %}
+                                {{ space_obj.name }}
                             {% else %}
                                 N/A
                             {% endif %}
                         </p>
                         <p><strong>Tipo:</strong> 
-                            {% if reservation.spaces %}
-                                {{ reservation.spaces.type|title }}
+                            {% if space_obj %}
+                                {% set lab_cat = space_obj.lab_category %}
+                                {% if space_obj.type == 'laboratorio' and lab_cat %}
+                                    {% if lab_cat == 'computacion' %}
+                                        Laboratorio (Computación)
+                                    {% elif lab_cat == 'medicina' %}
+                                        Laboratorio (Medicina)
+                                    {% else %}
+                                        Laboratorio
+                                    {% endif %}
+                                {% else %}
+                                    {{ space_obj.type|title }}
+                                {% endif %}
                             {% else %}
                                 N/A
                             {% endif %}

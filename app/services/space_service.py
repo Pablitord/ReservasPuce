@@ -75,7 +75,8 @@ class SpaceService:
         type: str,
         capacity: int,
         description: str = '',
-        floor: str = 'planta_baja'
+        floor: str = 'planta_baja',
+        lab_category: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """Crea un nuevo espacio"""
-        return self.space_repo.create_space(name, type, capacity, description, floor)
+        return self.space_repo.create_space(name, type, capacity, description, floor, lab_category)

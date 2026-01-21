@@ -43,7 +43,8 @@ class SpaceRepository:
         type: str,
         capacity: int,
         description: str = '',
-        floor: str = 'planta_baja'
+        floor: str = 'planta_baja',
+        lab_category: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """Crea un nuevo espacio"""
         try:
@@ -54,6 +55,8 @@ class SpaceRepository:
                 'capacity': capacity,
                 'description': description
             }
+            if lab_category:
+                data['lab_category'] = lab_category
             response = self.client.table(self.table).insert(data).execute()
             if response.data:
                 return response.data[0]
