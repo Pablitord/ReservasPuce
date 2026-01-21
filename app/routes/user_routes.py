@@ -90,6 +90,7 @@ def get_reservations_api():
     """API endpoint para obtener reservas (para el calendario) - muestra TODAS las reservas aprobadas"""
     space_id = request.args.get('space_id')
     floor = request.args.get('floor')
+    date_filter = request.args.get('date')
     
     # Obtener TODAS las reservas aprobadas para el calendario general
     all_reservations = reservation_service.get_all_reservations()
@@ -100,6 +101,10 @@ def get_reservations_api():
     # Si se especifica un espacio, filtrar por espacio
     if space_id:
         visible_reservations = [r for r in visible_reservations if r.get('space_id') == space_id]
+
+    # Si se especifica una fecha exacta, filtrar por esa fecha
+    if date_filter:
+        visible_reservations = [r for r in visible_reservations if str(r.get('date')) == date_filter]
     
     def resolve_floor(reservation):
         spaces = reservation.get('spaces')

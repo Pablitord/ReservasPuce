@@ -62,6 +62,16 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <div class="card">
+                                <div class="card-header">
+                                    <i class="bi bi-calendar-event"></i> Reservas del día (pendientes/aprobadas)
+                                </div>
+                                <div class="card-body" id="bookingsContainer">
+                                    <p class="text-muted mb-0">Selecciona un espacio y una fecha para ver reservas existentes.</p>
+                                </div>
+                            </div>
+                        </div>
                         <div class="row">
                             <div class="col-md-4 mb-3">
                                 <label for="date" class="form-label">Fecha</label>
@@ -100,6 +110,7 @@
         const spaceSelect = document.getElementById('space_id');
         const dateInput = document.getElementById('date');
         const scheduleContainer = document.getElementById('scheduleContainer');
+        const bookingsContainer = document.getElementById('bookingsContainer');
         if (!floorSelect || !spaceSelect) {
             return;
         }
@@ -140,55 +151,110 @@
         floorSelect.addEventListener('change', applyFloorFilter);
         applyFloorFilter();
 
-        async function loadSchedule() {
-            if (!scheduleContainer) return;
+        async function loadScheduleAndBookings() {
             const spaceId = spaceSelect.value;
             const dateVal = dateInput.value;
-            scheduleContainer.innerHTML = '<p class="text-muted mb-0">Cargando horario...</p>';
+
+            // SCHEDULE (clases)
+            if (scheduleContainer) {
+                scheduleContainer.innerHTML = '<p class="text-muted mb-0">Cargando horario...</p>';
+            }
+            // BOOKINGS (reservas)
+            if (bookingsContainer) {
+                bookingsContainer.innerHTML = '<p class="text-muted mb-0">Cargando reservas...</p>';
+            }
+
             if (!spaceId || !dateVal) {
-                scheduleContainer.innerHTML = '<p class="text-muted mb-0">Selecciona un espacio y una fecha para ver el horario.</p>';
+                if (scheduleContainer) {
+                    scheduleContainer.innerHTML = '<p class="text-muted mb-0">Selecciona un espacio y una fecha para ver el horario.</p>';
+                }
+                if (bookingsContainer) {
+                    bookingsContainer.innerHTML = '<p class="text-muted mb-0">Selecciona un espacio y una fecha para ver reservas existentes.</p>';
+                }
                 return;
             }
+
             // Construir la fecha en local para evitar el shift a UTC
             const parts = dateVal.split('-').map(Number);
             if (parts.length !== 3) {
-                scheduleContainer.innerHTML = '<p class="text-danger mb-0">Fecha inválida.</p>';
+                if (scheduleContainer) scheduleContainer.innerHTML = '<p class="text-danger mb-0">Fecha inválida.</p>';
+                if (bookingsContainer) bookingsContainer.innerHTML = '<p class="text-danger mb-0">Fecha inválida.</p>';
                 return;
             }
             const jsDate = new Date(parts[0], parts[1] - 1, parts[2]);
             if (isNaN(jsDate)) {
-                scheduleContainer.innerHTML = '<p class="text-danger mb-0">Fecha inválida.</p>';
+                if (scheduleContainer) scheduleContainer.innerHTML = '<p class="text-danger mb-0">Fecha inválida.</p>';
+                if (bookingsContainer) bookingsContainer.innerHTML = '<p class="text-danger mb-0">Fecha inválida.</p>';
                 return;
             }
-            const weekday = (jsDate.getDay() + 6) % 7; // mapear: lunes=0
+            const weekday = (jsDate.getDay() + 6) % 7; // lunes=0
+
+            // Fetch horarios de clase
             try {
                 const resp = await fetch(`/user/api/spaces/${spaceId}/schedule?weekday=${weekday}`);
                 const data = await resp.json();
                 if (!Array.isArray(data) || data.length === 0) {
                     scheduleContainer.innerHTML = '<p class="text-success mb-0">Sin clases programadas para este día.</p>';
-                    return;
+                } else {
+                    const weekdayLabels = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+                    const list = document.createElement('ul');
+                    list.className = 'list-group';
+                    data.forEach(item => {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        const desc = item.description ? ` - ${item.description}` : '';
+                        li.textContent = `${weekdayLabels[item.weekday]}: ${item.start_time.slice(0,5)} - ${item.end_time.slice(0,5)}${desc}`;
+                        li.classList.add('list-group-item-warning');
+                        list.appendChild(li);
+                    });
+                    scheduleContainer.innerHTML = '';
+                    scheduleContainer.appendChild(list);
                 }
-                const weekdayLabels = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
-                const list = document.createElement('ul');
-                list.className = 'list-group';
-                data.forEach(item => {
-                    const li = document.createElement('li');
-                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
-                    const desc = item.description ? ` - ${item.description}` : '';
-                    li.textContent = `${weekdayLabels[item.weekday]}: ${item.start_time.slice(0,5)} - ${item.end_time.slice(0,5)}${desc}`;
-                    li.classList.add('list-group-item-warning');
-                    list.appendChild(li);
-                });
-                scheduleContainer.innerHTML = '';
-                scheduleContainer.appendChild(list);
             } catch (e) {
                 console.error(e);
-                scheduleContainer.innerHTML = '<p class="text-danger mb-0">No se pudo cargar el horario.</p>';
+                if (scheduleContainer) scheduleContainer.innerHTML = '<p class="text-danger mb-0">No se pudo cargar el horario.</p>';
+            }
+
+            // Fetch reservas del día
+            try {
+                const resp = await fetch(`/user/api/reservations?space_id=${spaceId}&date=${dateVal}`);
+                const data = await resp.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    bookingsContainer.innerHTML = '<p class="text-success mb-0">Sin reservas para este día.</p>';
+                } else {
+                    const list = document.createElement('ul');
+                    list.className = 'list-group';
+                    data.forEach(item => {
+                        const startTime = (item.start && item.start.includes('T')) ? item.start.split('T')[1].slice(0,5) : (item.startTime || '').slice(0,5);
+                        const endTime = (item.end && item.end.includes('T')) ? item.end.split('T')[1].slice(0,5) : (item.endTime || '').slice(0,5);
+                        const status = item.status || item.statusText || '';
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        li.textContent = `${startTime} - ${endTime} (${status})`;
+                        const badge = document.createElement('span');
+                        badge.className = 'badge rounded-pill';
+                        if (status === 'approved') {
+                            badge.classList.add('bg-success');
+                        } else if (status === 'pending') {
+                            badge.classList.add('bg-warning','text-dark');
+                        } else {
+                            badge.classList.add('bg-secondary');
+                        }
+                        badge.textContent = status === 'approved' ? 'Aprobada' : (status === 'pending' ? 'Pendiente' : status);
+                        li.appendChild(badge);
+                        list.appendChild(li);
+                    });
+                    bookingsContainer.innerHTML = '';
+                    bookingsContainer.appendChild(list);
+                }
+            } catch (e) {
+                console.error(e);
+                if (bookingsContainer) bookingsContainer.innerHTML = '<p class="text-danger mb-0">No se pudieron cargar las reservas.</p>';
             }
         }
 
-        spaceSelect.addEventListener('change', loadSchedule);
-        dateInput.addEventListener('change', loadSchedule);
+        spaceSelect.addEventListener('change', loadScheduleAndBookings);
+        dateInput.addEventListener('change', loadScheduleAndBookings);
     })();
 </script>
 {% endblock %}
