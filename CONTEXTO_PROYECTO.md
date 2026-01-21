@@ -1,6 +1,6 @@
 # CONTEXTO COMPLETO DEL PROYECTO - ReservasPuce
 
-**Fecha de última actualización:** Diciembre 2024  
+**Fecha de última actualización:** Enero 2026  
 **Estado:** En desarrollo activo  
 **Próxima funcionalidad:** Implementación de Chatbot con procesamiento de lenguaje natural
 
@@ -195,6 +195,7 @@ ReservasPuce/
 - id (UUID, PK)
 - name (VARCHAR(255), NOT NULL)
 - type (VARCHAR(50), NOT NULL, CHECK IN ('aula', 'laboratorio', 'auditorio'))
+- floor (VARCHAR(20), NOT NULL, CHECK IN ('planta_baja', 'piso_1', 'piso_2'))
 - capacity (INTEGER, NOT NULL)
 - description (TEXT)
 - created_at (TIMESTAMP WITH TIME ZONE)
@@ -206,6 +207,9 @@ ReservasPuce/
 - Laboratorio de Computación 1 y 2
 - Laboratorio de Física, Química
 - Auditorio Principal (200), Auditorio Menor (100)
+- A-001 ... A-014 (planta baja, nombres reales por foto)
+- A-101 ... A-114 (piso 1)
+- A-201 ... A-213 (piso 2)
 
 #### 3. `reservations`
 ```sql
@@ -246,6 +250,7 @@ ReservasPuce/
 - `idx_notifications_read`
 - `idx_users_email`
 - `idx_spaces_type`
+- `idx_spaces_floor`
 
 ### Relaciones
 - `reservations.user_id` → `users.id`
@@ -308,6 +313,7 @@ PORT=5000
 
 **Query params de `/user/api/reservations`:**
 - `space_id` (opcional): Filtrar por espacio específico
+- `floor` (opcional): Filtrar por piso (`planta_baja`, `piso_1`, `piso_2`)
 
 ### Administrador (`/admin/*`)
 
@@ -386,7 +392,8 @@ PORT=5000
 - `get_all_spaces()` → `List[spaces]`
 - `get_space_by_id(space_id)` → `space_dict`
 - `get_spaces_by_type(space_type)` → `List[spaces]`
-- `create_space(name, type, capacity, description)` → `space_dict`
+- `get_spaces_grouped_by_floor()` → `List[{key,label,spaces}]` (agrupa para selects)
+- `create_space(name, type, capacity, description, floor='planta_baja')` → `space_dict`
 
 ### NotificationService (`app/services/notification_service.py`)
 
@@ -433,7 +440,7 @@ PORT=5000
 - `get_all_spaces()` → `List[space_dict]`
 - `get_space_by_id(space_id)` → `space_dict`
 - `get_spaces_by_type(space_type)` → `List[space_dict]`
-- `create_space(name, type, capacity, description)` → `space_dict`
+- `create_space(name, type, capacity, description, floor)` → `space_dict`
 
 ### ReservationRepository (`app/repositories/supabase/reservation_repo.py`)
 
@@ -498,13 +505,13 @@ PORT=5000
 ### Templates de Usuario
 
 **`user/calendar.html`**
-- Selector de espacios (dropdown)
+- Selector de piso + selector de espacios con `optgroup` por piso
 - Contenedor para FullCalendar (`#calendar`)
 - Carga FullCalendar desde CDN (`index.global.min.js`)
 - Carga `calendar.js` dinámicamente después de FullCalendar
 
 **`user/reserve_form.html`**
-- Selector de espacio
+- Selector de piso + selector de espacio con `optgroup` por piso
 - Input de fecha (min=`date.today()`)
 - Inputs de hora (start_time, end_time)
 - Textarea de justificación
@@ -559,6 +566,7 @@ PORT=5000
   - Procesa eventos con `allDay: false`
   - Formato: `YYYY-MM-DDTHH:MM:SS`
   - Incluye `extendedProps` con detalles
+  - Filtra por piso cuando se selecciona en el UI
 
 **`static/js/notifications.js`**: Funciones auxiliares de notificaciones
 
@@ -684,7 +692,8 @@ Polling cada 30s (main.js)
 - [x] Registro e inicio de sesión
 - [x] Calendario visual con FullCalendar.js
   - [x] Vista mensual
-  - [x] Selector de espacios
+  - [x] Selector de piso + selector de espacios con `optgroup`
+  - [x] Filtro por piso en calendario (sin seleccionar espacio)
   - [x] Eventos con colores (verde aprobadas, amarillo pendientes)
   - [x] Tooltips con detalles
   - [x] Eventos solo en días específicos (no todo el mes)
@@ -692,6 +701,7 @@ Polling cada 30s (main.js)
   - [x] Validación de fecha (no pasada)
   - [x] Validación de horarios (end > start)
   - [x] Validación de conflictos de horario
+  - [x] Filtro por piso en formulario de reserva
 - [x] Ver mis reservas
 - [x] Ver detalle de reserva
 - [x] Recibir notificaciones de aprobación/rechazo
@@ -720,6 +730,7 @@ Polling cada 30s (main.js)
 - [x] Validación de conflictos de horario
 - [x] Notificaciones en tiempo real (polling cada 30s)
 - [x] Manejo de errores y validaciones
+- [x] Clasificación de espacios por piso (planta baja, piso 1, piso 2)
 
 ---
 
@@ -779,6 +790,25 @@ new_start_time_obj = datetime.strptime(start_time, '%H:%M:%S').time()
 # Compara con horarios de reservas existentes
 ```
 
+### 8. Migración de columna `floor` en `spaces`
+
+**Problema:** El filtro por piso requiere la columna `floor` en la tabla `spaces`.
+
+**Solución:** Agregar columna y luego poblar por prefijo:
+```sql
+ALTER TABLE spaces
+ADD COLUMN IF NOT EXISTS floor VARCHAR(20) NOT NULL DEFAULT 'planta_baja'
+CHECK (floor IN ('planta_baja','piso_1','piso_2'));
+
+UPDATE spaces
+SET floor = CASE
+  WHEN name LIKE 'A-0%' THEN 'planta_baja'
+  WHEN name LIKE 'A-1%' THEN 'piso_1'
+  WHEN name LIKE 'A-2%' THEN 'piso_2'
+  ELSE floor
+END;
+```
+
 ---
 
 ## 🚀 PRÓXIMAS MEJORAS
@@ -824,12 +854,14 @@ new_start_time_obj = datetime.strptime(start_time, '%H:%M:%S').time()
 - Usar `anon key` en `SUPABASE_KEY`
 - Las relaciones deben especificarse explícitamente cuando hay ambigüedad
 - Los joins se hacen con sintaxis `table!foreign_key_name(*)`
+- La tabla `spaces` incluye `floor` y se recomienda poblarla desde el prefijo `A-0/A-1/A-2`
 
 ### FullCalendar
 
 - Usar `index.global.min.js` desde CDN
 - Eventos con hora deben tener `allDay: false`
 - Formato de fecha/hora: `YYYY-MM-DDTHH:MM:SS`
+- El API `/user/api/reservations` acepta `floor` para filtrar eventos por piso
 
 ### Notificaciones
 
@@ -848,7 +880,7 @@ new_start_time_obj = datetime.strptime(start_time, '%H:%M:%S').time()
 ## 🎯 ESTADO ACTUAL DEL PROYECTO
 
 **Versión:** 1.0 (Funcional, con mejoras pendientes)  
-**Última actualización:** Diciembre 2024
+**Última actualización:** Enero 2026
 
 ### Funcionalidades Completas
 - ✅ Autenticación completa
@@ -873,4 +905,4 @@ new_start_time_obj = datetime.strptime(start_time, '%H:%M:%S').time()
 ---
 
 **Documento creado para facilitar la continuación del desarrollo desde cualquier ubicación.**  
-**Última actualización:** Diciembre 2024
+**Última actualización:** Enero 2026
