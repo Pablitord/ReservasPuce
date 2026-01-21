@@ -52,6 +52,16 @@
                                 {% endfor %}
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <div class="card">
+                                <div class="card-header">
+                                    <i class="bi bi-info-circle"></i> Horario de clases del espacio seleccionado
+                                </div>
+                                <div class="card-body" id="scheduleContainer">
+                                    <p class="text-muted mb-0">Selecciona un espacio y una fecha para ver si está ocupado por clases.</p>
+                                </div>
+                            </div>
+                        </div>
                         <div class="row">
                             <div class="col-md-4 mb-3">
                                 <label for="date" class="form-label">Fecha</label>
@@ -88,6 +98,8 @@
     (function() {
         const floorSelect = document.getElementById('floorSelectReserve');
         const spaceSelect = document.getElementById('space_id');
+        const dateInput = document.getElementById('date');
+        const scheduleContainer = document.getElementById('scheduleContainer');
         if (!floorSelect || !spaceSelect) {
             return;
         }
@@ -127,6 +139,56 @@
 
         floorSelect.addEventListener('change', applyFloorFilter);
         applyFloorFilter();
+
+        async function loadSchedule() {
+            if (!scheduleContainer) return;
+            const spaceId = spaceSelect.value;
+            const dateVal = dateInput.value;
+            scheduleContainer.innerHTML = '<p class="text-muted mb-0">Cargando horario...</p>';
+            if (!spaceId || !dateVal) {
+                scheduleContainer.innerHTML = '<p class="text-muted mb-0">Selecciona un espacio y una fecha para ver el horario.</p>';
+                return;
+            }
+            // Construir la fecha en local para evitar el shift a UTC
+            const parts = dateVal.split('-').map(Number);
+            if (parts.length !== 3) {
+                scheduleContainer.innerHTML = '<p class="text-danger mb-0">Fecha inválida.</p>';
+                return;
+            }
+            const jsDate = new Date(parts[0], parts[1] - 1, parts[2]);
+            if (isNaN(jsDate)) {
+                scheduleContainer.innerHTML = '<p class="text-danger mb-0">Fecha inválida.</p>';
+                return;
+            }
+            const weekday = (jsDate.getDay() + 6) % 7; // mapear: lunes=0
+            try {
+                const resp = await fetch(`/user/api/spaces/${spaceId}/schedule?weekday=${weekday}`);
+                const data = await resp.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    scheduleContainer.innerHTML = '<p class="text-success mb-0">Sin clases programadas para este día.</p>';
+                    return;
+                }
+                const weekdayLabels = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+                const list = document.createElement('ul');
+                list.className = 'list-group';
+                data.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    const desc = item.description ? ` - ${item.description}` : '';
+                    li.textContent = `${weekdayLabels[item.weekday]}: ${item.start_time.slice(0,5)} - ${item.end_time.slice(0,5)}${desc}`;
+                    li.classList.add('list-group-item-warning');
+                    list.appendChild(li);
+                });
+                scheduleContainer.innerHTML = '';
+                scheduleContainer.appendChild(list);
+            } catch (e) {
+                console.error(e);
+                scheduleContainer.innerHTML = '<p class="text-danger mb-0">No se pudo cargar el horario.</p>';
+            }
+        }
+
+        spaceSelect.addEventListener('change', loadSchedule);
+        dateInput.addEventListener('change', loadSchedule);
     })();
 </script>
 {% endblock %}

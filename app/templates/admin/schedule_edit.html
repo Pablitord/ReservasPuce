@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Horario - Reservas PUCE{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0"><i class="bi bi-pencil-square"></i> Editar horario</h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="space_id" class="form-label">Aula/Espacio</label>
+                            <select class="form-select" id="space_id" name="space_id" required>
+                                {% for space in spaces %}
+                                <option value="{{ space.id }}" {% if space.id == schedule.space_id %}selected{% endif %}>
+                                    {{ space.name }} ({{ space.type }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="weekday" class="form-label">Día</label>
+                            <select class="form-select" id="weekday" name="weekday" required>
+                                <option value="0" {% if schedule.weekday == 0 %}selected{% endif %}>Lunes</option>
+                                <option value="1" {% if schedule.weekday == 1 %}selected{% endif %}>Martes</option>
+                                <option value="2" {% if schedule.weekday == 2 %}selected{% endif %}>Miércoles</option>
+                                <option value="3" {% if schedule.weekday == 3 %}selected{% endif %}>Jueves</option>
+                                <option value="4" {% if schedule.weekday == 4 %}selected{% endif %}>Viernes</option>
+                                <option value="5" {% if schedule.weekday == 5 %}selected{% endif %}>Sábado</option>
+                                <option value="6" {% if schedule.weekday == 6 %}selected{% endif %}>Domingo</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="start_time" class="form-label">Hora inicio</label>
+                                <input type="time" class="form-control" id="start_time" name="start_time" required value="{{ schedule.start_time[:5] }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="end_time" class="form-label">Hora fin</label>
+                                <input type="time" class="form-control" id="end_time" name="end_time" required value="{{ schedule.end_time[:5] }}">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Descripción (opcional)</label>
+                            <textarea class="form-control" id="description" name="description" rows="2">{{ schedule.description }}</textarea>
+                        </div>
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('admin.schedules') }}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Volver
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Guardar cambios
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

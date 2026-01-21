@@ -2,12 +2,16 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.services.admin_service import AdminService
 from app.services.reservation_service import ReservationService
 from app.services.auth_service import AuthService
+from app.services.class_schedule_service import ClassScheduleService
+from app.services.space_service import SpaceService
 from app.deps import admin_required
 
 admin_bp = Blueprint('admin', __name__)
 admin_service = AdminService()
 reservation_service = ReservationService()
 auth_service = AuthService()
+class_schedule_service = ClassScheduleService()
+space_service = SpaceService()
 
 @admin_bp.route('/dashboard')
 @admin_required
@@ -161,3 +165,85 @@ def create_admin():
             flash('Error al crear el administrador', 'error')
     
     return render_template('admin/create_admin.html')
+
+
+@admin_bp.route('/schedules', methods=['GET', 'POST'])
+@admin_required
+def schedules():
+    """Gestión de horarios fijos de aulas"""
+    spaces = space_service.get_all_spaces()
+    spaces_by_id = {s['id']: s for s in spaces}
+    selected_space_id = request.args.get('space_id') or None
+
+    if request.method == 'POST':
+        space_id = request.form.get('space_id')
+        weekday_raw = request.form.get('weekday')
+        start_time = request.form.get('start_time')
+        end_time = request.form.get('end_time')
+        description = request.form.get('description')
+
+        if not all([space_id, weekday_raw, start_time, end_time]):
+            flash('Completa espacio, día y horas.', 'error')
+            return redirect(url_for('admin.schedules', space_id=space_id or selected_space_id))
+
+        try:
+            weekday = int(weekday_raw)
+        except ValueError:
+            flash('Día inválido.', 'error')
+            return redirect(url_for('admin.schedules', space_id=space_id or selected_space_id))
+
+        success, message, _ = class_schedule_service.create_schedule(
+            space_id, weekday, start_time, end_time, description
+        )
+        flash(message, 'success' if success else 'error')
+        return redirect(url_for('admin.schedules', space_id=space_id))
+
+    schedules_list = class_schedule_service.get_schedules(selected_space_id)
+    return render_template(
+        'admin/schedules.html',
+        schedules=schedules_list,
+        spaces=spaces,
+        spaces_by_id=spaces_by_id,
+        selected_space_id=selected_space_id,
+    )
+
+
+@admin_bp.route('/schedules/<schedule_id>/edit', methods=['GET', 'POST'])
+@admin_required
+def edit_schedule(schedule_id):
+    schedule = class_schedule_service.get_by_id(schedule_id)
+    if not schedule:
+        flash('Horario no encontrado', 'error')
+        return redirect(url_for('admin.schedules'))
+
+    spaces = space_service.get_all_spaces()
+
+    if request.method == 'POST':
+        space_id = request.form.get('space_id')
+        weekday_raw = request.form.get('weekday')
+        start_time = request.form.get('start_time')
+        end_time = request.form.get('end_time')
+        description = request.form.get('description')
+
+        try:
+            weekday = int(weekday_raw)
+        except ValueError:
+            flash('Día inválido.', 'error')
+            return redirect(url_for('admin.edit_schedule', schedule_id=schedule_id))
+
+        success, message, _ = class_schedule_service.update_schedule(
+            schedule_id, space_id, weekday, start_time, end_time, description
+        )
+        flash(message, 'success' if success else 'error')
+        if success:
+            return redirect(url_for('admin.schedules', space_id=space_id))
+
+    return render_template('admin/schedule_edit.html', schedule=schedule, spaces=spaces)
+
+
+@admin_bp.route('/schedules/<schedule_id>/delete', methods=['POST'])
+@admin_required
+def delete_schedule(schedule_id):
+    deleted = class_schedule_service.delete_schedule(schedule_id)
+    flash('Horario eliminado' if deleted else 'No se pudo eliminar el horario', 'success' if deleted else 'error')
+    return redirect(url_for('admin.schedules'))

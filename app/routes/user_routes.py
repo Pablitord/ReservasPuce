@@ -1,11 +1,13 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.reservation_service import ReservationService
 from app.services.space_service import SpaceService
+from app.services.class_schedule_service import ClassScheduleService
 from app.deps import login_required
 
 user_bp = Blueprint('user', __name__)
 reservation_service = ReservationService()
 space_service = SpaceService()
+class_schedule_service = ClassScheduleService()
 
 @user_bp.route('/calendar')
 @login_required
@@ -19,6 +21,7 @@ def calendar():
 def reserve():
     """Formulario y creación de reserva"""
     from datetime import date as date_module
+
     if request.method == 'POST':
         space_id = request.form.get('space_id')
         reservation_date = request.form.get('date')  # Renombrar para evitar conflicto
@@ -202,3 +205,20 @@ def get_reservations_api():
         })
     
     return jsonify(events)
+
+
+@user_bp.route('/api/spaces/<space_id>/schedule')
+@login_required
+def get_space_schedule(space_id):
+    """Devuelve el horario de clases de un espacio. Param weekday opcional (0=lunes..6=domingo)."""
+    weekday = request.args.get('weekday')
+    weekday_int = None
+    if weekday is not None:
+        try:
+            weekday_int = int(weekday)
+            if weekday_int < 0 or weekday_int > 6:
+                return jsonify({"error": "weekday debe estar entre 0 y 6"}), 400
+        except ValueError:
+            return jsonify({"error": "weekday inválido"}), 400
+    schedules = class_schedule_service.get_schedules(space_id, weekday_int)
+    return jsonify(schedules)

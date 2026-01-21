@@ -1,6 +1,7 @@
 from app.repositories.supabase.reservation_repo import ReservationRepository
 from app.repositories.supabase.notification_repo import NotificationRepository
 from app.repositories.supabase.user_repo import UserRepository
+from app.services.class_schedule_service import ClassScheduleService
 from typing import Optional, Dict, Any, List
 from datetime import datetime, date as date_module
 
@@ -11,6 +12,7 @@ class ReservationService:
         self.reservation_repo = ReservationRepository()
         self.notification_repo = NotificationRepository()
         self.user_repo = UserRepository()
+        self.class_schedule_service = ClassScheduleService()
     
     def create_reservation(self, user_id: str, space_id: str, date: str, start_time: str, 
                           end_time: str, justification: str) -> tuple[bool, str, Optional[Dict[str, Any]]]:
@@ -22,6 +24,19 @@ class ReservationService:
                 return False, "No puedes reservar fechas pasadas", None
         except ValueError:
             return False, "Fecha inválida", None
+        
+        # Verificar conflicto con horario de clases fijo
+        class_conflict = self.class_schedule_service.find_conflict_with_class(
+            space_id, date, start_time, end_time
+        )
+        if class_conflict:
+            conflict_start = str(class_conflict.get('start_time'))[:5]
+            conflict_end = str(class_conflict.get('end_time'))[:5]
+            return (
+                False,
+                f"El aula está ocupada por clases de {conflict_start} a {conflict_end}.",
+                None,
+            )
         
         # Verificar conflicto de horario
         if self.reservation_repo.check_time_conflict(space_id, date, start_time, end_time):

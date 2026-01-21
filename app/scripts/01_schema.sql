@@ -28,6 +28,19 @@ CREATE TABLE IF NOT EXISTS spaces (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Tabla de horarios de clases (bloqueos fijos por aula)
+CREATE TABLE IF NOT EXISTS class_schedules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    space_id UUID NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+    weekday SMALLINT NOT NULL CHECK (weekday BETWEEN 0 AND 6), -- 0 = lunes, 6 = domingo
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT ck_class_time_order CHECK (end_time > start_time)
+);
+
 -- Tabla de reservas
 CREATE TABLE IF NOT EXISTS reservations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -67,6 +80,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_spaces_type ON spaces(type);
 CREATE INDEX IF NOT EXISTS idx_spaces_floor ON spaces(floor);
+CREATE INDEX IF NOT EXISTS idx_class_schedules_space_weekday ON class_schedules(space_id, weekday);
 
 -- Datos de ejemplo para espacios (opcional)
 INSERT INTO spaces (name, type, floor, capacity, description) VALUES

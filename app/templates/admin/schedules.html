@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Horarios de Aulas - Reservas PUCE{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4"><i class="bi bi-clock-history"></i> Horarios de clases por aula</h2>
+
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-plus-circle"></i> Nuevo horario
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="space_id" class="form-label">Aula/Espacio</label>
+                            <select class="form-select" id="space_id" name="space_id" required>
+                                <option value="">Selecciona un espacio</option>
+                                {% for space in spaces %}
+                                {% set lab_cat = space.lab_category %}
+                                {% if space.type == 'laboratorio' and lab_cat %}
+                                    {% if lab_cat == 'computacion' %}
+                                        {% set type_label = 'Laboratorio (Computación)' %}
+                                    {% elif lab_cat == 'medicina' %}
+                                        {% set type_label = 'Laboratorio (Medicina)' %}
+                                    {% else %}
+                                        {% set type_label = 'Laboratorio' %}
+                                    {% endif %}
+                                {% else %}
+                                    {% set type_label = space.type|title %}
+                                {% endif %}
+                                <option value="{{ space.id }}" {% if selected_space_id == space.id %}selected{% endif %}>
+                                    {{ space.name }} ({{ type_label }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="weekday" class="form-label">Día</label>
+                            <select class="form-select" id="weekday" name="weekday" required>
+                                <option value="0">Lunes</option>
+                                <option value="1">Martes</option>
+                                <option value="2">Miércoles</option>
+                                <option value="3">Jueves</option>
+                                <option value="4">Viernes</option>
+                                <option value="5">Sábado</option>
+                                <option value="6">Domingo</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="start_time" class="form-label">Hora inicio</label>
+                                <input type="time" class="form-control" id="start_time" name="start_time" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="end_time" class="form-label">Hora fin</label>
+                                <input type="time" class="form-control" id="end_time" name="end_time" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Descripción (opcional)</label>
+                            <textarea class="form-control" id="description" name="description" rows="2" placeholder="p.ej. Clase Ingeniería de Software"></textarea>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Guardar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="GET" class="row g-3 align-items-end">
+                        <div class="col-md-6">
+                            <label for="spaceFilter" class="form-label">Filtrar por espacio</label>
+                            <select class="form-select" id="spaceFilter" name="space_id" onchange="this.form.submit()">
+                                <option value="">Todos los espacios</option>
+                                {% for space in spaces %}
+                                {% set lab_cat = space.lab_category %}
+                                {% if space.type == 'laboratorio' and lab_cat %}
+                                    {% if lab_cat == 'computacion' %}
+                                        {% set type_label = 'Laboratorio (Computación)' %}
+                                    {% elif lab_cat == 'medicina' %}
+                                        {% set type_label = 'Laboratorio (Medicina)' %}
+                                    {% else %}
+                                        {% set type_label = 'Laboratorio' %}
+                                    {% endif %}
+                                {% else %}
+                                    {% set type_label = space.type|title %}
+                                {% endif %}
+                                <option value="{{ space.id }}" {% if selected_space_id == space.id %}selected{% endif %}>
+                                    {{ space.name }} ({{ type_label }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Espacio</th>
+                                    <th>Día</th>
+                                    <th>Horario</th>
+                                    <th>Descripción</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% set weekday_labels = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'] %}
+                                {% if schedules %}
+                                    {% for sch in schedules %}
+                                    <tr>
+                                        <td>
+                                            {% set sp = spaces_by_id.get(sch.space_id) %}
+                                            {% if sp %}
+                                                {% set lab_cat = sp.lab_category %}
+                                                {% if sp.type == 'laboratorio' and lab_cat %}
+                                                    {% if lab_cat == 'computacion' %}
+                                                        {% set type_label = 'Laboratorio (Computación)' %}
+                                                    {% elif lab_cat == 'medicina' %}
+                                                        {% set type_label = 'Laboratorio (Medicina)' %}
+                                                    {% else %}
+                                                        {% set type_label = 'Laboratorio' %}
+                                                    {% endif %}
+                                                {% else %}
+                                                    {% set type_label = sp.type|title %}
+                                                {% endif %}
+                                                {{ sp.name }} ({{ type_label }})
+                                            {% else %}
+                                                Espacio
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ weekday_labels[sch.weekday] if sch.weekday is not none else '-' }}</td>
+                                        <td>{{ sch.start_time[:5] }} - {{ sch.end_time[:5] }}</td>
+                                        <td>{{ sch.description or '-' }}</td>
+                                        <td>
+                                            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.edit_schedule', schedule_id=sch.id) }}">
+                                                <i class="bi bi-pencil"></i> Editar
+                                            </a>
+                                            <form method="POST" action="{{ url_for('admin.delete_schedule', schedule_id=sch.id) }}" style="display:inline;" onsubmit="return confirm('¿Eliminar este horario?');">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center">No hay horarios cargados</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
