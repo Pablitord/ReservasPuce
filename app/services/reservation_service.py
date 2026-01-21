@@ -1,6 +1,7 @@
 from app.repositories.supabase.reservation_repo import ReservationRepository
 from app.repositories.supabase.notification_repo import NotificationRepository
 from app.repositories.supabase.user_repo import UserRepository
+from app.repositories.supabase.reservation_deletion_repo import ReservationDeletionRepository
 from app.services.class_schedule_service import ClassScheduleService
 from typing import Optional, Dict, Any, List
 from datetime import datetime, date as date_module
@@ -13,6 +14,7 @@ class ReservationService:
         self.notification_repo = NotificationRepository()
         self.user_repo = UserRepository()
         self.class_schedule_service = ClassScheduleService()
+        self.reservation_deletion_repo = ReservationDeletionRepository()
     
     def create_reservation(self, user_id: str, space_id: str, date: str, start_time: str, 
                           end_time: str, justification: str) -> tuple[bool, str, Optional[Dict[str, Any]]]:
@@ -220,11 +222,34 @@ class ReservationService:
 
         return True, "Reserva actualizada", updated
 
-    def delete_reservation_admin(self, reservation_id: str) -> tuple[bool, str]:
-        """Elimina una reserva (solo admin)"""
+    def delete_reservation_admin(self, reservation_id: str, admin_id: str, reason: str) -> tuple[bool, str]:
+        """Elimina una reserva (solo admin), registra bitácora y notifica al usuario."""
         reservation = self.reservation_repo.get_reservation_by_id(reservation_id)
         if not reservation:
             return False, "Reserva no encontrada"
+
+        # Registrar en bitácora
+        self.reservation_deletion_repo.log_deletion(reservation, admin_id, reason)
+
+        # Notificar al usuario
+        try:
+            space_name = "el espacio"
+            if reservation.get("spaces"):
+                if isinstance(reservation.get("spaces"), dict):
+                    space_name = reservation.get("spaces", {}).get("name", "el espacio")
+                elif isinstance(reservation.get("spaces"), list) and reservation.get("spaces"):
+                    space_name = reservation.get("spaces")[0].get("name", "el espacio")
+            message = f"Tu reserva para {space_name} fue eliminada por un administrador.\n\nMotivo: {reason}"
+            self.notification_repo.create_notification(
+                user_id=reservation.get("user_id"),
+                title="Reserva eliminada",
+                message=message,
+                type="warning",
+                link="/user/my_reservations"
+            )
+        except Exception as e:
+            print(f"Error notificando eliminación: {e}")
+
         deleted = self.reservation_repo.delete_reservation(reservation_id)
         if not deleted:
             return False, "No se pudo eliminar la reserva"

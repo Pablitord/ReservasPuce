@@ -4,6 +4,7 @@ from app.services.reservation_service import ReservationService
 from app.services.auth_service import AuthService
 from app.services.class_schedule_service import ClassScheduleService
 from app.services.space_service import SpaceService
+from app.repositories.supabase.reservation_deletion_repo import ReservationDeletionRepository
 from app.deps import admin_required
 
 admin_bp = Blueprint('admin', __name__)
@@ -12,6 +13,7 @@ reservation_service = ReservationService()
 auth_service = AuthService()
 class_schedule_service = ClassScheduleService()
 space_service = SpaceService()
+reservation_deletion_repo = ReservationDeletionRepository()
 
 @admin_bp.route('/dashboard')
 @admin_required
@@ -124,13 +126,23 @@ def delete_reservation(reservation_id):
     if not reason or len(reason) < 5:
         flash('Proporciona una justificación (mínimo 5 caracteres) para eliminar la reserva.', 'error')
         return redirect(url_for('admin.reservation_detail', reservation_id=reservation_id))
-    success, message = reservation_service.delete_reservation_admin(reservation_id)
+    success, message = reservation_service.delete_reservation_admin(reservation_id, session['user_id'], reason)
     # Podríamos almacenar la razón en logs/notifications si se desea, por ahora solo mensaje.
     if success:
         flash(f'{message}. Motivo: {reason}', 'success')
     else:
         flash(message, 'error')
     return redirect(url_for('admin.reservations'))
+
+
+@admin_bp.route('/deletions')
+@admin_required
+def deletions_log():
+    """Lista de eliminaciones de reservas (bitácora)"""
+    logs = reservation_deletion_repo.get_logs(limit=100)
+    spaces = {s['id']: s for s in space_service.get_all_spaces()}
+    users = {u['id']: u for u in auth_service.user_repo.get_all_users()} if hasattr(auth_service, 'user_repo') else {}
+    return render_template('admin/deletions.html', logs=logs, spaces=spaces, users=users)
 
 @admin_bp.route('/create_admin', methods=['GET', 'POST'])
 @admin_required

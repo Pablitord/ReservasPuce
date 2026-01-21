@@ -58,6 +58,20 @@ CREATE TABLE IF NOT EXISTS reservations (
     CONSTRAINT check_time_order CHECK (end_time > start_time)
 );
 
+-- Bitácora de eliminaciones de reservas (para auditoría)
+CREATE TABLE IF NOT EXISTS reservation_deletions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reservation_id UUID,
+    user_id UUID,
+    space_id UUID,
+    date DATE,
+    start_time TIME,
+    end_time TIME,
+    admin_id UUID,
+    reason TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Tabla de notificaciones
 CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

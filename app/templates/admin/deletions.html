@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Bitácora de eliminaciones - Reservas PUCE{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4"><i class="bi bi-archive"></i> Bitácora de eliminaciones</h2>
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Fecha registro</th>
+                            <th>Espacio</th>
+                            <th>Reserva (fecha/hora)</th>
+                            <th>Usuario</th>
+                            <th>Admin</th>
+                            <th>Motivo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if logs %}
+                            {% for log in logs %}
+                            {% set space = spaces.get(log.space_id) %}
+                            {% set user = users.get(log.user_id) %}
+                            {% set admin_user = users.get(log.admin_id) %}
+                            <tr>
+                                <td>{{ log.created_at[:19] if log.created_at else '-' }}</td>
+                                <td>{{ space.name if space else log.space_id or 'N/A' }}</td>
+                                <td>
+                                    {{ log.date or '-' }}
+                                    {% if log.start_time %} {{ log.start_time[:5] }} - {{ log.end_time[:5] if log.end_time }}{% endif %}
+                                </td>
+                                <td>
+                                    {% if user %}
+                                        {{ user.name }} ({{ user.email }})
+                                    {% else %}
+                                        {{ log.user_id or 'N/A' }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if admin_user %}
+                                        {{ admin_user.name }} ({{ admin_user.email }})
+                                    {% else %}
+                                        {{ log.admin_id or 'N/A' }}
+                                    {% endif %}
+                                </td>
+                                <td>{{ log.reason or '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center">Sin registros</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
