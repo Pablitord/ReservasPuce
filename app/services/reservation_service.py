@@ -254,3 +254,27 @@ class ReservationService:
         if not deleted:
             return False, "No se pudo eliminar la reserva"
         return True, "Reserva eliminada"
+
+    def cancel_reservation_by_user(self, reservation_id: str, user_id: str, reason: str) -> tuple[bool, str]:
+        """Cancelación por el usuario de su reserva pendiente"""
+        reservation = self.reservation_repo.get_reservation_by_id(reservation_id)
+        if not reservation:
+            return False, "Reserva no encontrada"
+        if reservation.get('user_id') != user_id:
+            return False, "No tienes permisos para cancelar esta reserva"
+        if reservation.get('status') != 'pending':
+            return False, "Solo puedes cancelar reservas pendientes"
+        # Registrar en bitácora como cancelación de usuario (admin_id None)
+        self.reservation_deletion_repo.log_deletion(reservation, None, f"Cancelada por el usuario: {reason}")
+        # Notificar al usuario (a sí mismo) confirmación de cancelación
+        self.notification_repo.create_notification(
+            user_id=user_id,
+            title="Reserva cancelada",
+            message=f"Cancelaste tu reserva para {reservation.get('spaces', {}).get('name', 'el espacio')}. Motivo: {reason}",
+            type="info",
+            link="/user/my_reservations"
+        )
+        deleted = self.reservation_repo.delete_reservation(reservation_id)
+        if not deleted:
+            return False, "No se pudo cancelar la reserva"
+        return True, "Reserva cancelada"

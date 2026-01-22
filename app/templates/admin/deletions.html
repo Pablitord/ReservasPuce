@@ -5,6 +5,47 @@
 {% block content %}
 <div class="container-fluid">
     <h2 class="mb-4"><i class="bi bi-archive"></i> Bitácora de eliminaciones</h2>
+    <div class="card mb-3">
+        <div class="card-body">
+            <form class="row g-2">
+                <div class="col-md-3">
+                    <label class="form-label">Espacio</label>
+                    <select class="form-select" name="space_id" onchange="this.form.submit()">
+                        <option value="">Todos</option>
+                        {% for sid, sp in spaces.items() %}
+                        <option value="{{ sid }}" {% if space_id==sid %}selected{% endif %}>{{ sp.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Usuario</label>
+                    <select class="form-select" name="user_id" onchange="this.form.submit()">
+                        <option value="">Todos</option>
+                        {% for uid, usr in users.items() %}
+                        <option value="{{ uid }}" {% if user_id==uid %}selected{% endif %}>{{ usr.name }} ({{ usr.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Admin</label>
+                    <select class="form-select" name="admin_id" onchange="this.form.submit()">
+                        <option value="">Todos</option>
+                        {% for uid, usr in users.items() if usr.role == 'admin' %}
+                        <option value="{{ uid }}" {% if admin_id==uid %}selected{% endif %}>{{ usr.name }} ({{ usr.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Fecha desde</label>
+                    <input type="date" class="form-control" name="date_from" value="{{ date_from or '' }}" onchange="this.form.submit()">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Fecha hasta</label>
+                    <input type="date" class="form-control" name="date_to" value="{{ date_to or '' }}" onchange="this.form.submit()">
+                </div>
+            </form>
+        </div>
+    </div>
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">

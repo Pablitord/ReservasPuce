@@ -21,6 +21,7 @@
                                 <option value="piso_2">Piso 2</option>
                             </select>
                         </div>
+                        <div class="mb-2 text-danger" id="disableNote" style="min-height: 1.2em;"></div>
                         <div class="mb-3">
                             <label for="space_id" class="form-label">Espacio</label>
                             <select class="form-select" id="space_id" name="space_id" required>
@@ -111,6 +112,12 @@
         const dateInput = document.getElementById('date');
         const scheduleContainer = document.getElementById('scheduleContainer');
         const bookingsContainer = document.getElementById('bookingsContainer');
+        const submitBtn = document.querySelector('button[type="submit"]');
+        const startInput = document.getElementById('start_time');
+        const endInput = document.getElementById('end_time');
+        const disableNote = document.getElementById('disableNote');
+        let scheduleData = [];
+        let bookingsData = [];
         if (!floorSelect || !spaceSelect) {
             return;
         }
@@ -151,6 +158,55 @@
         floorSelect.addEventListener('change', applyFloorFilter);
         applyFloorFilter();
 
+        function checkConflictsAndToggleSubmit() {
+            if (!submitBtn || !startInput || !endInput) return;
+            const startVal = startInput.value;
+            const endVal = endInput.value;
+            if (!startVal || !endVal) {
+                submitBtn.disabled = false;
+                submitBtn.title = '';
+                if (disableNote) disableNote.innerText = '';
+                return;
+            }
+            const toMinutes = (t) => {
+                const p = (t || '').split(':');
+                return p.length >= 2 ? parseInt(p[0],10)*60 + parseInt(p[1],10) : 0;
+            };
+            const newStart = toMinutes(startVal);
+            const newEnd = toMinutes(endVal);
+            if (newEnd <= newStart) {
+                submitBtn.disabled = true;
+                submitBtn.title = 'La hora fin debe ser mayor que la hora inicio';
+                if (disableNote) disableNote.innerText = 'La hora fin debe ser mayor que la hora inicio.';
+                return;
+            }
+            for (const c of scheduleData) {
+                const cStart = toMinutes(c.start_time?.slice(0,5));
+                const cEnd = toMinutes(c.end_time?.slice(0,5));
+                if (newStart < cEnd && cStart < newEnd) {
+                    submitBtn.disabled = true;
+                    submitBtn.title = `Choque con clases ${c.start_time?.slice(0,5)}-${c.end_time?.slice(0,5)}`;
+                    if (disableNote) disableNote.innerText = `No puedes enviar: choca con clases ${c.start_time?.slice(0,5)}-${c.end_time?.slice(0,5)}.`;
+                    return;
+                }
+            }
+            for (const b of bookingsData) {
+                const s = b.start?.includes('T') ? b.start.split('T')[1].slice(0,5) : (b.startTime || '').slice(0,5);
+                const e = b.end?.includes('T') ? b.end.split('T')[1].slice(0,5) : (b.endTime || '').slice(0,5);
+                const bStart = toMinutes(s);
+                const bEnd = toMinutes(e);
+                if (newStart < bEnd && bStart < newEnd) {
+                    submitBtn.disabled = true;
+                    submitBtn.title = `Choque con otra reserva ${s}-${e}`;
+                    if (disableNote) disableNote.innerText = `No puedes enviar: choca con otra reserva ${s}-${e}.`;
+                    return;
+                }
+            }
+            submitBtn.disabled = false;
+            submitBtn.title = '';
+            if (disableNote) disableNote.innerText = '';
+        }
+
         async function loadScheduleAndBookings() {
             const spaceId = spaceSelect.value;
             const dateVal = dateInput.value;
@@ -181,6 +237,7 @@
             try {
                 const resp = await fetch(`/user/api/spaces/${spaceId}/schedule?weekday=${weekday}`);
                 const data = await resp.json();
+                scheduleData = Array.isArray(data) ? data : [];
                 if (!Array.isArray(data) || data.length === 0) {
                     scheduleContainer.innerHTML = '<p class="text-success mb-0">Sin clases programadas para este día.</p>';
                 } else {
@@ -206,6 +263,7 @@
             try {
                 const resp = await fetch(`/user/api/reservations?space_id=${spaceId}&date=${dateVal}`);
                 const data = await resp.json();
+                bookingsData = Array.isArray(data) ? data : [];
                 if (!Array.isArray(data) || data.length === 0) {
                     bookingsContainer.innerHTML = '<p class="text-success mb-0">Sin reservas para este día.</p>';
                 } else {
@@ -238,10 +296,13 @@
                 console.error(e);
                 if (bookingsContainer) bookingsContainer.innerHTML = '<p class="text-danger mb-0">No se pudieron cargar las reservas.</p>';
             }
+            checkConflictsAndToggleSubmit();
         }
 
         spaceSelect.addEventListener('change', loadScheduleAndBookings);
         dateInput.addEventListener('change', loadScheduleAndBookings);
+        startInput.addEventListener('change', checkConflictsAndToggleSubmit);
+        endInput.addEventListener('change', checkConflictsAndToggleSubmit);
 
         // carga inicial
         loadScheduleAndBookings();

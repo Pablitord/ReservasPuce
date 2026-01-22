@@ -149,6 +149,18 @@ def edit_reservation(reservation_id):
         selected_end=str(reservation.get('end_time'))[:5] if reservation.get('end_time') else '',
         justification_val=reservation.get('justification', '')
     )
+
+@user_bp.route('/my_reservations/<reservation_id>/cancel', methods=['POST'])
+@login_required
+def cancel_reservation(reservation_id):
+    """Cancelación por el usuario de una reserva pendiente"""
+    reason = request.form.get('cancel_reason', '').strip()
+    if not reason or len(reason) < 5:
+        flash('Proporciona un motivo (mínimo 5 caracteres) para cancelar.', 'error')
+        return redirect(url_for('user.reservation_detail', reservation_id=reservation_id))
+    success, message = reservation_service.cancel_reservation_by_user(reservation_id, session['user_id'], reason)
+    flash(message, 'success' if success else 'error')
+    return redirect(url_for('user.my_reservations'))
 @user_bp.route('/my_reservations/<reservation_id>')
 @login_required
 def reservation_detail(reservation_id):

@@ -32,16 +32,29 @@ class ReservationDeletionRepository:
             print(f"Error registrando eliminación de reserva: {e}")
             return None
 
-    def get_logs(self, limit: int = 100) -> list[Dict[str, Any]]:
-        """Obtiene registros de eliminaciones para auditoría."""
+    def get_logs(
+        self,
+        limit: int = 100,
+        space_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        admin_id: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> list[Dict[str, Any]]:
+        """Obtiene registros de eliminaciones para auditoría con filtros opcionales."""
         try:
-            resp = (
-                self.client.table(self.table)
-                .select("*")
-                .order("created_at", desc=True)
-                .limit(limit)
-                .execute()
-            )
+            query = self.client.table(self.table).select("*")
+            if space_id:
+                query = query.eq("space_id", space_id)
+            if user_id:
+                query = query.eq("user_id", user_id)
+            if admin_id:
+                query = query.eq("admin_id", admin_id)
+            if date_from:
+                query = query.gte("date", date_from)
+            if date_to:
+                query = query.lte("date", date_to)
+            resp = query.order("created_at", desc=True).limit(limit).execute()
             return resp.data or []
         except Exception as e:
             print(f"Error obteniendo bitácora de eliminaciones: {e}")

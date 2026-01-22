@@ -64,6 +64,12 @@
                             <a href="{{ url_for('user.edit_reservation', reservation_id=reservation.id) }}" class="btn btn-sm btn-warning">
                                 <i class="bi bi-pencil"></i> Editar
                             </a>
+                            <form method="POST" action="{{ url_for('user.cancel_reservation', reservation_id=reservation.id) }}" style="display:inline;" onsubmit="return confirm('¿Cancelar esta reserva?');">
+                                <input type="hidden" name="cancel_reason" value="Cancelada desde listado">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-x-circle"></i> Cancelar
+                                </button>
+                            </form>
                             {% endif %}
                         </td>
                     </tr>

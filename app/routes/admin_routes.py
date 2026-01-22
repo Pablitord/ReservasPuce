@@ -139,10 +139,33 @@ def delete_reservation(reservation_id):
 @admin_required
 def deletions_log():
     """Lista de eliminaciones de reservas (bitácora)"""
-    logs = reservation_deletion_repo.get_logs(limit=100)
+    space_id = request.args.get('space_id') or None
+    user_id = request.args.get('user_id') or None
+    admin_id = request.args.get('admin_id') or None
+    date_from = request.args.get('date_from') or None
+    date_to = request.args.get('date_to') or None
+
+    logs = reservation_deletion_repo.get_logs(
+        limit=200,
+        space_id=space_id,
+        user_id=user_id,
+        admin_id=admin_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
     spaces = {s['id']: s for s in space_service.get_all_spaces()}
     users = {u['id']: u for u in auth_service.user_repo.get_all_users()} if hasattr(auth_service, 'user_repo') else {}
-    return render_template('admin/deletions.html', logs=logs, spaces=spaces, users=users)
+    return render_template(
+        'admin/deletions.html',
+        logs=logs,
+        spaces=spaces,
+        users=users,
+        space_id=space_id,
+        user_id=user_id,
+        admin_id=admin_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
 
 @admin_bp.route('/create_admin', methods=['GET', 'POST'])
 @admin_required
