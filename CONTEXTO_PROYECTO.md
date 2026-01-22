@@ -837,6 +837,19 @@ END;
 
 ---
 
+## 🆕 ACTUALIZACIONES RECIENTES (Ene 2026)
+
+- Horarios de clases por aula (`class_schedules`): bloquean reservas, se muestran en el formulario; admin CRUD en “Horarios aulas”.
+- Reservas del día: al elegir aula/fecha en el formulario se listan reservas pendientes/aprobadas de ese día.
+- Categoría de laboratorio: se muestra como “Laboratorio (Computación/Medicina)” en selects y listados.
+- Edición de reservas pendientes por el usuario: vista de edición con mismas validaciones (clases, solapes, fecha futura).
+- Cancelación por el usuario (pendientes): requiere motivo; registra bitácora de eliminación con admin_id NULL; notificación al usuario.
+- Eliminación por admin: requiere justificación en modal; notifica al usuario con motivo; registra en bitácora.
+- Bitácora de eliminaciones (`reservation_deletions`): vista “Bitácora eliminaciones” con filtros por espacio, usuario, admin, rango de fechas.
+- UX formulario: botón Enviar se deshabilita si hay solape con clases/otras reservas o fin<=inicio; se muestra nota indicando el motivo.
+
+---
+
 ## 📝 NOTAS IMPORTANTES PARA DESARROLLO
 
 ### Variables de Entorno
