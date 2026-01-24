@@ -89,6 +89,22 @@ class ReservationService:
                 link=f'/admin/reservations/{reservation_id}'
             )
 
+        # Enviar correo a admins si SMTP está configurado
+        try:
+            if self.email_service.is_configured():
+                subject = "Nueva solicitud de reserva"
+                body = (
+                    f"Se ha recibido una nueva solicitud de reserva para {space_name}.\n\n"
+                    f"ID: {reservation_id}\n"
+                    "Revisa en el panel de administración."
+                )
+                for admin in admins:
+                    to_email = admin.get('email')
+                    if to_email:
+                        self.email_service.send_email(to_email, subject, body)
+        except Exception as e:
+            print(f"Error enviando correo a admins: {e}")
+
     def _send_reservation_confirmation_email(self, reservation: Dict[str, Any]):
         """Envía correo de confirmación al crear una reserva"""
         try:
