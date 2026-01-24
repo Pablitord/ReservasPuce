@@ -905,6 +905,16 @@ ALTER TABLE reservations
 
 ## 🆕 ACTUALIZACIONES RECIENTES (Ene 2026)
 
+- Chatbot (rule-based) como asistente de consultas rápidas en `/user/calendar`:
+  - Intents soportados: capacidad/datos de espacio, ocupación de un espacio en una fecha, espacios libres en una fecha.
+  - Busca espacios tolerando nombres como A002 vs A-002.
+  - Ocupación combina clases (`class_schedules`) y reservas (pending/approved), mostrando bloques ocupados y libres; si está libre todo el día, lo indica.
+  - Espacios libres agrupados por piso, en texto, sin acciones de reserva; requiere fecha (hoy/mañana/fecha). Si se pide disponibilidad sin fecha, pide aclararla con chips.
+  - Respuestas cortas, sin emoticonos; solo ayuda breve cuando no entiende.
+  - Endpoint: `POST /user/chatbot/query`, UI: modal con botón flotante en calendario.
+  - Contexto mínimo (last_date, last_space) solo para seguir fecha/espacio en consultas inmediatas.
+  - Sin flujo de reserva desde el chat (solo consulta).
+- Correos: HTML más descriptivos; envío asíncrono para no bloquear la UI; admins reciben correo en nuevas solicitudes.
 - Horarios de clases por aula (`class_schedules`): bloquean reservas, se muestran en el formulario; admin CRUD en “Horarios aulas”.
 - Reservas del día: al elegir aula/fecha en el formulario se listan reservas pendientes/aprobadas de ese día.
 - Categoría de laboratorio: se muestra como “Laboratorio (Computación/Medicina)” en selects y listados.
