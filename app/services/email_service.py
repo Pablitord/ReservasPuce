@@ -1,4 +1,5 @@
 import smtplib
+import threading
 from email.message import EmailMessage
 from app.config import Config
 
@@ -49,3 +50,11 @@ class EmailService:
             self.last_error = str(e)
             print(f"EmailService: error enviando correo: {e}")
             return False
+
+    def send_email_async(self, to_email: str, subject: str, body: str, subtype: str = "plain"):
+        """Dispara el envío en un hilo para no bloquear la petición."""
+        threading.Thread(
+            target=self.send_email,
+            args=(to_email, subject, body, subtype),
+            daemon=True,
+        ).start()

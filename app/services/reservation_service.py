@@ -116,7 +116,7 @@ class ReservationService:
                 for admin in admins:
                     to_email = admin.get('email')
                     if to_email:
-                        self.email_service.send_email(to_email, subject, body, subtype="html")
+                        self.email_service.send_email_async(to_email, subject, body, subtype="html")
         except Exception as e:
             print(f"Error enviando correo a admins: {e}")
 
@@ -154,8 +154,10 @@ class ReservationService:
             </body>
             </html>
             """
-            if self.email_service.send_email(user['email'], subject, body, subtype="html"):
-                self.reservation_repo.mark_confirmation_sent(reservation.get('id'))
+            # Enviar en background
+            self.email_service.send_email_async(user['email'], subject, body, subtype="html")
+            # Marcar como enviado (best effort)
+            self.reservation_repo.mark_confirmation_sent(reservation.get('id'))
         except Exception as e:
             print(f"Error enviando confirmación por correo: {e}")
     
@@ -283,7 +285,7 @@ class ReservationService:
                 </html>
                 """
 
-            self.email_service.send_email(user['email'], subject, body, subtype="html")
+            self.email_service.send_email_async(user['email'], subject, body, subtype="html")
         except Exception as e:
             print(f"Error enviando email de estado de reserva: {e}")
     
