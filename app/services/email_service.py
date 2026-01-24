@@ -19,7 +19,7 @@ class EmailService:
     def is_configured(self) -> bool:
         return bool(self.host and self.sender)
 
-    def send_email(self, to_email: str, subject: str, body: str) -> bool:
+    def send_email(self, to_email: str, subject: str, body: str, subtype: str = "plain") -> bool:
         self.last_error = None
         if not self.is_configured():
             self.last_error = "SMTP no configurado. Revisa SMTP_HOST y SMTP_FROM."
@@ -30,7 +30,8 @@ class EmailService:
         message["Subject"] = subject
         message["From"] = self.sender
         message["To"] = to_email
-        message.set_content(body)
+        # Permitir cuerpo en HTML (multilinea)
+        message.set_content(body, subtype=subtype)
 
         try:
             if self.use_ssl:

@@ -79,6 +79,10 @@ class ReservationService:
         space_service = SpaceService()
         space = space_service.get_space_by_id(reservation.get('space_id', ''))
         space_name = space.get('name', 'un espacio') if space else 'un espacio'
+        date_str = reservation.get('date', '')
+        start_time = str(reservation.get('start_time', ''))[:5]
+        end_time = str(reservation.get('end_time', ''))[:5]
+        justification = reservation.get('justification', '')
         
         for admin in admins:
             self.notification_repo.create_notification(
@@ -93,15 +97,26 @@ class ReservationService:
         try:
             if self.email_service.is_configured():
                 subject = "Nueva solicitud de reserva"
-                body = (
-                    f"Se ha recibido una nueva solicitud de reserva para {space_name}.\n\n"
-                    f"ID: {reservation_id}\n"
-                    "Revisa en el panel de administración."
-                )
+                body = f"""
+                <html>
+                <body>
+                <p>Hola,</p>
+                <p>Se ha recibido una nueva solicitud de reserva.</p>
+                <ul>
+                  <li><strong>Espacio:</strong> {space_name}</li>
+                  <li><strong>Fecha:</strong> {date_str}</li>
+                  <li><strong>Horario:</strong> {start_time} - {end_time}</li>
+                  <li><strong>Justificación:</strong> {justification}</li>
+                  <li><strong>ID:</strong> {reservation_id}</li>
+                </ul>
+                <p>Revisa en el panel de administración.</p>
+                </body>
+                </html>
+                """
                 for admin in admins:
                     to_email = admin.get('email')
                     if to_email:
-                        self.email_service.send_email(to_email, subject, body)
+                        self.email_service.send_email(to_email, subject, body, subtype="html")
         except Exception as e:
             print(f"Error enviando correo a admins: {e}")
 
@@ -120,18 +135,26 @@ class ReservationService:
             date_str = reservation.get('date', '')
             start_time = str(reservation.get('start_time', ''))[:5]
             end_time = str(reservation.get('end_time', ''))[:5]
+            justification = reservation.get('justification', '')
 
             subject = "Confirmación de reserva - Reservas PUCE"
-            body = (
-                f"Hola {user.get('name', 'Usuario')},\n\n"
-                f"Tu solicitud de reserva fue registrada correctamente.\n\n"
-                f"Espacio: {space_name}\n"
-                f"Fecha: {date_str}\n"
-                f"Horario: {start_time} - {end_time}\n"
-                "Estado: Pendiente de aprobación\n\n"
-                "Te notificaremos cuando sea aprobada o rechazada.\n"
-            )
-            if self.email_service.send_email(user['email'], subject, body):
+            body = f"""
+            <html>
+            <body>
+            <p>Hola {user.get('name', 'Usuario')},</p>
+            <p>Tu solicitud de reserva fue registrada correctamente.</p>
+            <ul>
+              <li><strong>Espacio:</strong> {space_name}</li>
+              <li><strong>Fecha:</strong> {date_str}</li>
+              <li><strong>Horario:</strong> {start_time} - {end_time}</li>
+              <li><strong>Estado:</strong> Pendiente de aprobación</li>
+              <li><strong>Justificación:</strong> {justification}</li>
+            </ul>
+            <p>Te notificaremos cuando sea aprobada o rechazada.</p>
+            </body>
+            </html>
+            """
+            if self.email_service.send_email(user['email'], subject, body, subtype="html"):
                 self.reservation_repo.mark_confirmation_sent(reservation.get('id'))
         except Exception as e:
             print(f"Error enviando confirmación por correo: {e}")
@@ -225,31 +248,42 @@ class ReservationService:
             date_str = str(reservation.get('date', ''))
             start_time = str(reservation.get('start_time', ''))[:5]
             end_time = str(reservation.get('end_time', ''))[:5]
+            justification = reservation.get('justification', '')
 
             if status == 'approved':
                 subject = "Reserva aprobada - Reservas PUCE"
-                body = (
-                    f"Hola {user.get('name', 'Usuario')},\n\n"
-                    f"Tu reserva fue aprobada.\n\n"
-                    f"Espacio: {space_name}\n"
-                    f"Fecha: {date_str}\n"
-                    f"Horario: {start_time} - {end_time}\n\n"
-                    "Gracias.\n"
-                )
+                body = f"""
+                <html>
+                <body>
+                <p>Hola {user.get('name', 'Usuario')},</p>
+                <p>Tu reserva fue <strong>aprobada</strong>.</p>
+                <p style="margin:0;"><strong>Espacio:</strong> {space_name}</p>
+                <p style="margin:0;"><strong>Fecha:</strong> {date_str}</p>
+                <p style="margin:0;"><strong>Horario:</strong> {start_time} - {end_time}</p>
+                <p style="margin:0;"><strong>Justificación:</strong> {justification}</p>
+                <p style="margin-top:12px;">¡Gracias!</p>
+                </body>
+                </html>
+                """
             else:
                 subject = "Reserva rechazada - Reservas PUCE"
                 reason = rejection_reason.strip() if rejection_reason else "Sin detalle"
-                body = (
-                    f"Hola {user.get('name', 'Usuario')},\n\n"
-                    f"Tu reserva fue rechazada.\n\n"
-                    f"Espacio: {space_name}\n"
-                    f"Fecha: {date_str}\n"
-                    f"Horario: {start_time} - {end_time}\n"
-                    f"Motivo: {reason}\n\n"
-                    "Si tienes dudas, contacta al administrador.\n"
-                )
+                body = f"""
+                <html>
+                <body>
+                <p>Hola {user.get('name', 'Usuario')},</p>
+                <p>Tu reserva fue <strong>rechazada</strong>.</p>
+                <p style="margin:0;"><strong>Espacio:</strong> {space_name}</p>
+                <p style="margin:0;"><strong>Fecha:</strong> {date_str}</p>
+                <p style="margin:0;"><strong>Horario:</strong> {start_time} - {end_time}</p>
+                <p style="margin:0;"><strong>Justificación:</strong> {justification}</p>
+                <p style="margin:0;"><strong>Motivo:</strong> {reason}</p>
+                <p style="margin-top:12px;">Si tienes dudas, contacta al administrador.</p>
+                </body>
+                </html>
+                """
 
-            self.email_service.send_email(user['email'], subject, body)
+            self.email_service.send_email(user['email'], subject, body, subtype="html")
         except Exception as e:
             print(f"Error enviando email de estado de reserva: {e}")
     
@@ -297,17 +331,23 @@ class ReservationService:
 
             start_time = str(reservation.get('start_time', ''))[:5]
             end_time = str(reservation.get('end_time', ''))[:5]
+            justification = reservation.get('justification', '')
 
             subject = "Recordatorio de reserva - Reservas PUCE"
-            body = (
-                f"Hola {user.get('name', 'Usuario')},\n\n"
-                "Tienes una reserva activa para hoy.\n\n"
-                f"Espacio: {space_name}\n"
-                f"Fecha: {target_date}\n"
-                f"Horario: {start_time} - {end_time}\n\n"
-                "Si tienes dudas, contacta al administrador.\n"
-            )
-            if self.email_service.send_email(email, subject, body):
+            body = f"""
+            <html>
+            <body>
+            <p>Hola {user.get('name', 'Usuario')},</p>
+            <p>Tienes una reserva activa para hoy.</p>
+            <p style="margin:0;"><strong>Espacio:</strong> {space_name}</p>
+            <p style="margin:0;"><strong>Fecha:</strong> {target_date}</p>
+            <p style="margin:0;"><strong>Horario:</strong> {start_time} - {end_time}</p>
+            <p style="margin:0;"><strong>Justificación:</strong> {justification}</p>
+            <p style="margin-top:12px;">Si tienes dudas, contacta al administrador.</p>
+            </body>
+            </html>
+            """
+            if self.email_service.send_email(email, subject, body, subtype="html"):
                 if self.reservation_repo.mark_reminder_sent(reservation.get('id')):
                     sent += 1
 
