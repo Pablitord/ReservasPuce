@@ -22,6 +22,18 @@
     .fc {
         font-size: 1em;
     }
+    /* Botón flotante chatbot */
+    #chatbot-btn {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 2000;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+    }
+    #chatbot-messages {
+        max-height: 300px;
+        overflow-y: auto;
+    }
 </style>
 {% endblock %}
 
@@ -75,6 +87,32 @@
     </div>
     
     <div id="calendar"></div>
+</div>
+
+<!-- Botón flotante chatbot -->
+<button id="chatbot-btn" class="btn btn-primary rounded-circle" type="button" data-bs-toggle="modal" data-bs-target="#chatbotModal" title="Asistente">
+    <i class="bi bi-chat-dots fs-4"></i>
+</button>
+
+<!-- Modal chatbot -->
+<div class="modal fade" id="chatbotModal" tabindex="-1" aria-labelledby="chatbotModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="chatbotModalLabel"><i class="bi bi-robot"></i> Asistente</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="chatbot-messages" class="mb-3 border rounded p-2 bg-light">
+            <div class="text-muted small">Pregúntame: “capacidad A-002”, “ocupación A-002 hoy”, “ocupación A-002 29/01/2026”, “espacios libres mañana”.</div>
+        </div>
+        <div class="input-group">
+          <input type="text" id="chatbot-input" class="form-control" placeholder="Escribe tu pregunta...">
+          <button class="btn btn-primary" type="button" id="chatbot-send"><i class="bi bi-send"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -156,6 +194,122 @@
 
         floorSelect.addEventListener('change', applyFloorFilter);
         applyFloorFilter();
+    })();
+</script>
+<script>
+    (function() {
+        const input = document.getElementById('chatbot-input');
+        const sendBtn = document.getElementById('chatbot-send');
+        const messages = document.getElementById('chatbot-messages');
+        let lastContext = {};
+        let lastQuestion = '';
+        let lastPage = 1;
+        const pageSize = 8;
+
+        function appendMessage(text, sender) {
+            if (!messages) return;
+            const div = document.createElement('div');
+            div.className = sender === 'user' ? 'text-end mb-2' : 'text-start mb-2';
+            const badge = sender === 'user' ? '<span class="badge bg-primary me-1">Tú</span>' : '<span class="badge bg-secondary me-1">Bot</span>';
+            div.innerHTML = `${badge}${text}`;
+            messages.appendChild(div);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function appendChips(chips) {
+            if (!messages || !chips) return;
+            const wrap = document.createElement('div');
+            wrap.className = 'mb-2';
+            chips.forEach(ch => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-sm btn-outline-primary me-1 mb-1';
+                btn.textContent = ch.label || ch.value;
+                btn.addEventListener('click', () => {
+                    input.value = ch.value || '';
+                    askBot(true);
+                });
+                wrap.appendChild(btn);
+            });
+            messages.appendChild(wrap);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function appendCards(cards) {
+            if (!messages || !cards) return;
+            cards.forEach(card => {
+                const div = document.createElement('div');
+                div.className = 'card card-body p-2 mb-2';
+                div.innerHTML = `
+                    <div><strong>${card.space_name || 'Espacio'}</strong></div>
+                    <div class="small">Capacidad: ${card.capacity || '-'}</div>
+                    <div class="small">Piso: ${card.floor || '-'}</div>
+                    ${card.action_url ? `<a class="btn btn-sm btn-primary mt-2" href="${card.action_url}">Reservar</a>` : ''}
+                `;
+                messages.appendChild(div);
+            });
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function appendLoadMore(hasMore) {
+            if (!hasMore) return;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-sm btn-outline-secondary mb-2';
+            btn.textContent = 'Ver más';
+            btn.addEventListener('click', () => {
+                lastPage += 1;
+                askBot(false, true);
+            });
+            messages.appendChild(btn);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        async function askBot(fromChip=false, isLoadMore=false) {
+            const q = (input.value || lastQuestion || '').trim();
+            if (!q) return;
+            if (!isLoadMore) {
+                appendMessage(q, 'user');
+                lastQuestion = q;
+                lastPage = 1;
+            }
+            if (fromChip) {
+                lastQuestion = q;
+                lastPage = 1;
+            }
+            input.value = '';
+            try {
+                const resp = await fetch('/user/chatbot/query', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({question: lastQuestion, page: lastPage, page_size: pageSize, context: lastContext})
+                });
+                const data = await resp.json();
+                appendMessage(data.answer || 'No entendí la pregunta.', 'bot');
+                if (data.type === 'clarify' && data.chips) {
+                    appendChips(data.chips);
+                }
+                if (data.type === 'cards' && data.cards) {
+                    appendCards(data.cards);
+                }
+                const hasMore = data.data && data.data.has_more;
+                appendLoadMore(hasMore);
+                if (data.context) {
+                    lastContext = {...lastContext, ...data.context};
+                }
+            } catch (e) {
+                console.error(e);
+                appendMessage('Error al consultar el asistente.', 'bot');
+            }
+        }
+
+        if (sendBtn) sendBtn.addEventListener('click', askBot);
+        if (input) input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                askBot();
+            }
+        });
     })();
 </script>
 {% endblock %}

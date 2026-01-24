@@ -2,12 +2,14 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.services.reservation_service import ReservationService
 from app.services.space_service import SpaceService
 from app.services.class_schedule_service import ClassScheduleService
+from app.services.chatbot_service import ChatbotService
 from app.deps import login_required
 
 user_bp = Blueprint('user', __name__)
 reservation_service = ReservationService()
 space_service = SpaceService()
 class_schedule_service = ClassScheduleService()
+chatbot_service = ChatbotService()
 
 @user_bp.route('/calendar')
 @login_required
@@ -21,6 +23,12 @@ def calendar():
 def reserve():
     """Formulario y creación de reserva"""
     from datetime import date as date_module
+
+    pre_space = request.args.get('space_id')
+    pre_date = request.args.get('date')
+    pre_start = request.args.get('start_time')
+    pre_end = request.args.get('end_time')
+    pre_just = request.args.get('justification')
 
     if request.method == 'POST':
         space_id = request.form.get('space_id')
@@ -59,7 +67,16 @@ def reserve():
     
     spaces_by_floor = space_service.get_spaces_grouped_by_floor()
     min_date = date_module.today().isoformat()  # Usar date_module en lugar de date
-    return render_template('user/reserve_form.html', spaces_by_floor=spaces_by_floor, min_date=min_date)
+    return render_template(
+        'user/reserve_form.html',
+        spaces_by_floor=spaces_by_floor,
+        min_date=min_date,
+        selected_space_id=pre_space,
+        selected_date=pre_date,
+        selected_start=pre_start,
+        selected_end=pre_end,
+        justification_val=pre_just
+    )
 
 @user_bp.route('/my_reservations')
 @login_required
@@ -320,3 +337,23 @@ def get_space_schedule(space_id):
             return jsonify({"error": "weekday inválido"}), 400
     schedules = class_schedule_service.get_schedules(space_id, weekday_int)
     return jsonify(schedules)
+
+
+@user_bp.route('/chatbot/query', methods=['POST'])
+@login_required
+def chatbot_query():
+    """Endpoint para el chatbot rule-based."""
+    question = ""
+    page = 1
+    page_size = 8
+    ctx = {}
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        question = data.get('question', '')
+        page = int(data.get('page', 1) or 1)
+        page_size = int(data.get('page_size', 8) or 8)
+        ctx = data.get('context', {}) or {}
+    else:
+        question = request.form.get('question', '')
+    result = chatbot_service.answer(question, context=ctx, page=page, page_size=page_size)
+    return jsonify(result)
