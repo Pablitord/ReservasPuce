@@ -131,6 +131,47 @@ class ReservationRepository:
             import traceback
             traceback.print_exc()
             return []
+
+    def get_approved_reservations_by_date(self, date: str, only_without_reminder: bool = True) -> List[Dict[str, Any]]:
+        """Obtiene reservas aprobadas de una fecha específica"""
+        try:
+            query = (
+                self.client.table(self.table)
+                .select('*, spaces(*), users!reservations_user_id_fkey(*)')
+                .eq('status', 'approved')
+                .eq('date', date)
+            )
+            if only_without_reminder:
+                query = query.is_('reminder_sent_at', None)
+            response = query.execute()
+            reservations = response.data if response.data else []
+            for res in reservations:
+                if res.get('users'):
+                    res['user'] = res['users']
+            return reservations
+        except Exception as e:
+            print(f"Error obteniendo reservas aprobadas por fecha: {e}")
+            return []
+
+    def mark_confirmation_sent(self, reservation_id: str) -> bool:
+        """Marca la confirmación de correo enviada"""
+        try:
+            data = {'confirmation_sent_at': datetime.now().isoformat()}
+            response = self.client.table(self.table).update(data).eq('id', reservation_id).execute()
+            return bool(response.data)
+        except Exception as e:
+            print(f"Error marcando confirmación enviada: {e}")
+            return False
+
+    def mark_reminder_sent(self, reservation_id: str) -> bool:
+        """Marca el recordatorio de correo enviado"""
+        try:
+            data = {'reminder_sent_at': datetime.now().isoformat()}
+            response = self.client.table(self.table).update(data).eq('id', reservation_id).execute()
+            return bool(response.data)
+        except Exception as e:
+            print(f"Error marcando recordatorio enviado: {e}")
+            return False
     
     def check_time_conflict(self, space_id: str, date: str, start_time: str, end_time: str, exclude_id: Optional[str] = None) -> bool:
         """Verifica si hay conflicto de horario"""

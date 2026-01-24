@@ -155,7 +155,8 @@ ReservasPuce/
 │   │       └── notifications.js    # Manejo de notificaciones
 │   │
 │   └── scripts/
-│       └── 01_schema.sql           # Schema de base de datos
+│       ├── 01_schema.sql           # Schema de base de datos
+│       └── send_reservation_reminders.py # Recordatorios diarios por email
 │
 ├── api/                            # (Carpeta no utilizada actualmente)
 ├── venv/                           # Entorno virtual de Python
@@ -182,6 +183,9 @@ ReservasPuce/
 - name (VARCHAR(255), NOT NULL)
 - student_id (VARCHAR(50), UNIQUE, NOT NULL)
 - role (VARCHAR(20), DEFAULT 'user', CHECK IN ('user', 'admin'))
+- email_verified (BOOLEAN, DEFAULT FALSE)
+- verification_code (VARCHAR(10))
+- verification_expires_at (TIMESTAMP WITH TIME ZONE)
 - created_at (TIMESTAMP WITH TIME ZONE)
 - updated_at (TIMESTAMP WITH TIME ZONE)
 ```
@@ -223,6 +227,8 @@ ReservasPuce/
 - status (VARCHAR(20), DEFAULT 'pending', CHECK IN ('pending', 'approved', 'rejected'))
 - admin_id (UUID, FK -> users.id, ON DELETE SET NULL)
 - reviewed_at (TIMESTAMP WITH TIME ZONE)
+- confirmation_sent_at (TIMESTAMP WITH TIME ZONE)
+- reminder_sent_at (TIMESTAMP WITH TIME ZONE)
 - rejection_reason (TEXT)  -- Agregado recientemente
 - created_at (TIMESTAMP WITH TIME ZONE)
 - updated_at (TIMESTAMP WITH TIME ZONE)
@@ -276,6 +282,12 @@ SUPABASE_KEY=tu-clave-supabase-aqui
 FLASK_DEBUG=True
 HOST=127.0.0.1
 PORT=5000
+SMTP_HOST=smtp.tu-proveedor.com
+SMTP_PORT=587
+SMTP_USER=tu-usuario
+SMTP_PASSWORD=tu-password
+SMTP_FROM=reservas@puce.edu.ec
+SMTP_USE_TLS=True
 ```
 
 ### Configuración en `app/config.py`
@@ -286,6 +298,7 @@ PORT=5000
 - `FLASK_DEBUG`: Modo debug (True/False)
 - `HOST`: Host del servidor (default: 127.0.0.1)
 - `PORT`: Puerto del servidor (default: 5000)
+- `SMTP_*`: Configuración de correo para verificación y notificaciones
 
 **Importante:** El archivo `.env` debe estar en la raíz (`ReservasPuce/.env`), no en `app/.env`.
 
@@ -299,6 +312,8 @@ PORT=5000
 |------|--------|-------------|--------|
 | `/auth/login` | GET, POST | Login de usuario | Público |
 | `/auth/register` | GET, POST | Registro de usuario | Público |
+| `/auth/verify` | GET, POST | Verificación de cuenta con código | Público |
+| `/auth/verify/resend` | POST | Reenvío de código de verificación | Público |
 | `/auth/logout` | GET | Cerrar sesión | Login requerido |
 
 ### Usuario (`/user/*`)
@@ -359,8 +374,12 @@ PORT=5000
   - Valida email único
   - Hashea contraseña con `werkzeug.security.generate_password_hash`
   - Crea usuario con rol `user`
+  - Genera y envía código de verificación por email
 - `login_user(email, password)` → `(success, message, user)`
   - Verifica email y contraseña con `check_password_hash`
+  - Bloquea login si el email no está verificado
+- `verify_email(email, code)` → `(success, message)`
+- `resend_verification_code(email)` → `(success, message)`
 - `get_user_by_id(user_id)` → `user_dict`
 
 ### ReservationService (`app/services/reservation_service.py`)
@@ -385,6 +404,7 @@ PORT=5000
 - `get_pending_reservations()` → `List[reservations]`
 - `get_reservations_by_space_and_date(space_id, date)` → `List[reservations]`
 - `get_all_reservations()` → `List[reservations]`
+- `send_reservation_reminders(date=None)` → `{total, sent}` (recordatorios por email)
 
 ### SpaceService (`app/services/space_service.py`)
 
@@ -402,6 +422,12 @@ PORT=5000
 - `get_unread_count(user_id)` → `int`
 - `mark_as_read(notification_id)` → `bool`
 - `mark_all_as_read(user_id)` → `bool`
+
+### EmailService (`app/services/email_service.py`)
+
+**Métodos:**
+- `send_email(to, subject, body)` → `bool` (SMTP)
+- Usado para verificación de cuentas, confirmaciones y recordatorios
 
 ### AdminService (`app/services/admin_service.py`)
 
@@ -501,6 +527,7 @@ PORT=5000
 
 **`auth/login.html`**: Formulario de login
 **`auth/register.html`**: Formulario de registro
+**`auth/verify.html`**: Verificación de cuenta por código
 
 ### Templates de Usuario
 
@@ -589,6 +616,16 @@ Usuario → /auth/register (POST)
   → AuthService.register_user()
     → UserRepository.create_user()
       → Supabase: INSERT INTO users
+  → Envío de código de verificación por email
+  → Redirect a /auth/verify
+```
+
+### 1.1 Verificación de Email
+
+```
+Usuario → /auth/verify (POST)
+  → AuthService.verify_email()
+    → UserRepository.mark_email_verified()
   → Redirect a /auth/login
 ```
 
@@ -683,6 +720,15 @@ Polling cada 30s (main.js)
   → Actualizar badge y dropdown
 ```
 
+### 9. Recordatorios por Email
+
+```
+Tarea programada (diaria)
+  → script app/scripts/send_reservation_reminders.py
+    → ReservationService.send_reservation_reminders()
+      → Envía correos a reservas aprobadas del día
+```
+
 ---
 
 ## ✅ FUNCIONALIDADES IMPLEMENTADAS
@@ -690,6 +736,7 @@ Polling cada 30s (main.js)
 ### Usuario
 
 - [x] Registro e inicio de sesión
+- [x] Verificación de cuenta por correo (código)
 - [x] Calendario visual con FullCalendar.js
   - [x] Vista mensual
   - [x] Selector de piso + selector de espacios con `optgroup`
@@ -702,6 +749,9 @@ Polling cada 30s (main.js)
   - [x] Validación de horarios (end > start)
   - [x] Validación de conflictos de horario
   - [x] Filtro por piso en formulario de reserva
+- [x] Confirmación por correo al crear reserva
+- [x] Recordatorio por correo el día de la reserva (tarea programada)
+- [x] Correo al aprobar o rechazar una reserva
 - [x] Ver mis reservas
 - [x] Ver detalle de reserva
 - [x] Recibir notificaciones de aprobación/rechazo
@@ -809,6 +859,22 @@ SET floor = CASE
 END;
 ```
 
+### 9. Verificación de cuentas y columnas nuevas
+
+**Problema:** Para enviar códigos de verificación y recordatorios se requieren columnas extra.
+
+**Solución:** Agregar columnas en `users` y `reservations`:
+```sql
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS verification_code VARCHAR(10),
+  ADD COLUMN IF NOT EXISTS verification_expires_at TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE reservations
+  ADD COLUMN IF NOT EXISTS confirmation_sent_at TIMESTAMP WITH TIME ZONE,
+  ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMP WITH TIME ZONE;
+```
+
 ---
 
 ## 🚀 PRÓXIMAS MEJORAS
@@ -847,6 +913,8 @@ END;
 - Eliminación por admin: requiere justificación en modal; notifica al usuario con motivo; registra en bitácora.
 - Bitácora de eliminaciones (`reservation_deletions`): vista “Bitácora eliminaciones” con filtros por espacio, usuario, admin, rango de fechas.
 - UX formulario: botón Enviar se deshabilita si hay solape con clases/otras reservas o fin<=inicio; se muestra nota indicando el motivo.
+- Verificación de cuenta por código de correo (nuevo endpoint `/auth/verify`).
+- Confirmación de reserva por email, recordatorios diarios y correo al aprobar/rechazar.
 
 ---
 
@@ -868,6 +936,11 @@ END;
 - Las relaciones deben especificarse explícitamente cuando hay ambigüedad
 - Los joins se hacen con sintaxis `table!foreign_key_name(*)`
 - La tabla `spaces` incluye `floor` y se recomienda poblarla desde el prefijo `A-0/A-1/A-2`
+
+### Email (SMTP)
+
+- Se requiere configurar `SMTP_*` para verificación y correos de reservas
+- La verificación usa `verification_code` con expiración en 30 minutos
 
 ### FullCalendar
 

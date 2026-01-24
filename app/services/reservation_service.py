@@ -3,6 +3,7 @@ from app.repositories.supabase.notification_repo import NotificationRepository
 from app.repositories.supabase.user_repo import UserRepository
 from app.repositories.supabase.reservation_deletion_repo import ReservationDeletionRepository
 from app.services.class_schedule_service import ClassScheduleService
+from app.services.email_service import EmailService
 from typing import Optional, Dict, Any, List
 from datetime import datetime, date as date_module
 
@@ -15,6 +16,7 @@ class ReservationService:
         self.user_repo = UserRepository()
         self.class_schedule_service = ClassScheduleService()
         self.reservation_deletion_repo = ReservationDeletionRepository()
+        self.email_service = EmailService()
     
     def create_reservation(self, user_id: str, space_id: str, date: str, start_time: str, 
                           end_time: str, justification: str) -> tuple[bool, str, Optional[Dict[str, Any]]]:
@@ -54,6 +56,9 @@ class ReservationService:
         
         # Notificar a los administradores
         self._notify_admins_new_reservation(reservation)
+
+        # Enviar correo de confirmación al usuario
+        self._send_reservation_confirmation_email(reservation)
         
         return True, "Reserva creada exitosamente. Esperando aprobación del administrador.", reservation
     
@@ -83,6 +88,37 @@ class ReservationService:
                 type='info',
                 link=f'/admin/reservations/{reservation_id}'
             )
+
+    def _send_reservation_confirmation_email(self, reservation: Dict[str, Any]):
+        """Envía correo de confirmación al crear una reserva"""
+        try:
+            user = self.user_repo.get_user_by_id(reservation.get('user_id'))
+            if not user or not user.get('email'):
+                return
+
+            from app.services.space_service import SpaceService
+            space_service = SpaceService()
+            space = space_service.get_space_by_id(reservation.get('space_id', ''))
+            space_name = space.get('name', 'el espacio') if space else 'el espacio'
+
+            date_str = reservation.get('date', '')
+            start_time = str(reservation.get('start_time', ''))[:5]
+            end_time = str(reservation.get('end_time', ''))[:5]
+
+            subject = "Confirmación de reserva - Reservas PUCE"
+            body = (
+                f"Hola {user.get('name', 'Usuario')},\n\n"
+                f"Tu solicitud de reserva fue registrada correctamente.\n\n"
+                f"Espacio: {space_name}\n"
+                f"Fecha: {date_str}\n"
+                f"Horario: {start_time} - {end_time}\n"
+                "Estado: Pendiente de aprobación\n\n"
+                "Te notificaremos cuando sea aprobada o rechazada.\n"
+            )
+            if self.email_service.send_email(user['email'], subject, body):
+                self.reservation_repo.mark_confirmation_sent(reservation.get('id'))
+        except Exception as e:
+            print(f"Error enviando confirmación por correo: {e}")
     
     def approve_reservation(self, reservation_id: str, admin_id: str) -> tuple[bool, str]:
         """Aprueba una reserva"""
@@ -106,6 +142,8 @@ class ReservationService:
             type='success',
             link=f'/user/my_reservations/{reservation_id}'
         )
+
+        self._send_reservation_status_email(reservation, status='approved')
         
         return True, "Reserva aprobada exitosamente"
     
@@ -146,8 +184,58 @@ class ReservationService:
             type='error',
             link=f'/user/my_reservations/{reservation_id}'
         )
+
+        self._send_reservation_status_email(reservation, status='rejected', rejection_reason=rejection_reason)
         
         return True, "Reserva rechazada exitosamente"
+
+    def _send_reservation_status_email(
+        self,
+        reservation: Dict[str, Any],
+        status: str,
+        rejection_reason: Optional[str] = None
+    ):
+        """Envía correo al usuario cuando la reserva es aprobada o rechazada"""
+        try:
+            user = self.user_repo.get_user_by_id(reservation.get('user_id'))
+            if not user or not user.get('email'):
+                return
+
+            space = reservation.get('spaces') or {}
+            if isinstance(space, list):
+                space = space[0] if space else {}
+            space_name = space.get('name', 'el espacio')
+
+            date_str = str(reservation.get('date', ''))
+            start_time = str(reservation.get('start_time', ''))[:5]
+            end_time = str(reservation.get('end_time', ''))[:5]
+
+            if status == 'approved':
+                subject = "Reserva aprobada - Reservas PUCE"
+                body = (
+                    f"Hola {user.get('name', 'Usuario')},\n\n"
+                    f"Tu reserva fue aprobada.\n\n"
+                    f"Espacio: {space_name}\n"
+                    f"Fecha: {date_str}\n"
+                    f"Horario: {start_time} - {end_time}\n\n"
+                    "Gracias.\n"
+                )
+            else:
+                subject = "Reserva rechazada - Reservas PUCE"
+                reason = rejection_reason.strip() if rejection_reason else "Sin detalle"
+                body = (
+                    f"Hola {user.get('name', 'Usuario')},\n\n"
+                    f"Tu reserva fue rechazada.\n\n"
+                    f"Espacio: {space_name}\n"
+                    f"Fecha: {date_str}\n"
+                    f"Horario: {start_time} - {end_time}\n"
+                    f"Motivo: {reason}\n\n"
+                    "Si tienes dudas, contacta al administrador.\n"
+                )
+
+            self.email_service.send_email(user['email'], subject, body)
+        except Exception as e:
+            print(f"Error enviando email de estado de reserva: {e}")
     
     def get_user_reservations(self, user_id: str) -> List[Dict[str, Any]]:
         """Obtiene las reservas de un usuario"""
@@ -168,6 +256,46 @@ class ReservationService:
     def get_all_reservations(self) -> List[Dict[str, Any]]:
         """Obtiene todas las reservas"""
         return self.reservation_repo.get_all_reservations()
+
+    def send_reservation_reminders(self, target_date: Optional[str] = None) -> Dict[str, int]:
+        """Envía recordatorios de reservas aprobadas para la fecha indicada"""
+        if not target_date:
+            target_date = date_module.today().isoformat()
+
+        reservations = self.reservation_repo.get_approved_reservations_by_date(
+            target_date, only_without_reminder=True
+        )
+        total = len(reservations)
+        sent = 0
+
+        for reservation in reservations:
+            user = reservation.get('users') or reservation.get('user') or {}
+            email = user.get('email')
+            if not email:
+                continue
+
+            space = reservation.get('spaces') or {}
+            if isinstance(space, list):
+                space = space[0] if space else {}
+            space_name = space.get('name', 'el espacio')
+
+            start_time = str(reservation.get('start_time', ''))[:5]
+            end_time = str(reservation.get('end_time', ''))[:5]
+
+            subject = "Recordatorio de reserva - Reservas PUCE"
+            body = (
+                f"Hola {user.get('name', 'Usuario')},\n\n"
+                "Tienes una reserva activa para hoy.\n\n"
+                f"Espacio: {space_name}\n"
+                f"Fecha: {target_date}\n"
+                f"Horario: {start_time} - {end_time}\n\n"
+                "Si tienes dudas, contacta al administrador.\n"
+            )
+            if self.email_service.send_email(email, subject, body):
+                if self.reservation_repo.mark_reminder_sent(reservation.get('id')):
+                    sent += 1
+
+        return {'total': total, 'sent': sent}
 
     def update_reservation(
         self,

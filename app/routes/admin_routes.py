@@ -207,7 +207,14 @@ def create_admin():
         password_hash = generate_password_hash(password)
         
         # Crear usuario como admin
-        user = user_repo.create_user(email, password_hash, name, student_id, role='admin')
+        user = user_repo.create_user(
+            email,
+            password_hash,
+            name,
+            student_id,
+            role='admin',
+            email_verified=True
+        )
         
         if user:
             flash(f'Administrador {name} creado exitosamente', 'success')

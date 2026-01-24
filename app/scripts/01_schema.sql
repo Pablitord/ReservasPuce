@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(255) NOT NULL,
     student_id VARCHAR(50) UNIQUE NOT NULL,
     role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+    email_verified BOOLEAN DEFAULT FALSE,
+    verification_code VARCHAR(10),
+    verification_expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -53,6 +56,8 @@ CREATE TABLE IF NOT EXISTS reservations (
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
     admin_id UUID REFERENCES users(id) ON DELETE SET NULL,
     reviewed_at TIMESTAMP WITH TIME ZONE,
+    confirmation_sent_at TIMESTAMP WITH TIME ZONE,
+    reminder_sent_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     CONSTRAINT check_time_order CHECK (end_time > start_time)
@@ -171,6 +176,6 @@ WHERE name ILIKE 'Auditorio%';
 
 -- Crear un usuario administrador por defecto (cambiar la contraseña después)
 -- Contraseña por defecto: admin123 (debe cambiarse en producción)
-INSERT INTO users (email, password_hash, name, student_id, role) VALUES
-    ('admin@puce.edu.ec', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5KqZz8eHGqR1q', 'Administrador', 'ADMIN001', 'admin')
+INSERT INTO users (email, password_hash, name, student_id, role, email_verified) VALUES
+    ('admin@puce.edu.ec', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5KqZz8eHGqR1q', 'Administrador', 'ADMIN001', 'admin', TRUE)
 ON CONFLICT (email) DO NOTHING;

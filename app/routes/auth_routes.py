@@ -60,7 +60,7 @@ def register():
         
         if success:
             flash(message, 'success')
-            return redirect(url_for('auth.login'))
+            return redirect(url_for('auth.verify_email', email=email))
         else:
             flash(message, 'error')
     
@@ -73,3 +73,26 @@ def logout():
     session.clear()
     flash('Sesión cerrada exitosamente', 'success')
     return redirect(url_for('auth.login'))
+
+
+@auth_bp.route('/verify', methods=['GET', 'POST'])
+def verify_email():
+    """Verificación de cuenta por código"""
+    email = request.args.get('email') or request.form.get('email') or ''
+    if request.method == 'POST':
+        code = request.form.get('code', '').strip()
+        success, message = auth_service.verify_email(email, code)
+        if success:
+            flash(message, 'success')
+            return redirect(url_for('auth.login'))
+        flash(message, 'error')
+    return render_template('auth/verify.html', email=email)
+
+
+@auth_bp.route('/verify/resend', methods=['POST'])
+def resend_verification():
+    """Reenvía el código de verificación"""
+    email = request.form.get('email', '').strip()
+    success, message = auth_service.resend_verification_code(email)
+    flash(message, 'success' if success else 'error')
+    return redirect(url_for('auth.verify_email', email=email))

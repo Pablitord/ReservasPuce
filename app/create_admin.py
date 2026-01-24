@@ -70,7 +70,8 @@ def create_admin():
             password_hash=password_hash,
             name=name,
             student_id=student_id,
-            role='admin'
+            role='admin',
+            email_verified=True
         )
         
         if user:

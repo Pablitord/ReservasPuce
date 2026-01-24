@@ -22,3 +22,12 @@ class Config:
     DEBUG = os.environ.get('FLASK_DEBUG', 'False') == 'True'
     HOST = os.environ.get('HOST', '127.0.0.1')
     PORT = int(os.environ.get('PORT', 5000))
+    
+    # Configuración de correo (SMTP)
+    SMTP_HOST = os.environ.get('SMTP_HOST') or ''
+    SMTP_PORT = int(os.environ.get('SMTP_PORT', 587))
+    SMTP_USER = os.environ.get('SMTP_USER') or ''
+    SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD') or ''
+    SMTP_FROM = os.environ.get('SMTP_FROM') or ''
+    SMTP_USE_TLS = os.environ.get('SMTP_USE_TLS', 'True') == 'True'
+    SMTP_USE_SSL = os.environ.get('SMTP_USE_SSL', 'False') == 'True'
