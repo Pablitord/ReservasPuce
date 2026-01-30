@@ -103,9 +103,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <div id="chatbot-messages" class="mb-3 border rounded p-2 bg-light">
-            <div class="text-muted small">Pregúntame: “capacidad A-002”, “ocupación A-002 hoy”, “ocupación A-002 29/01/2026”, “espacios libres mañana”.</div>
-        </div>
+        <div id="chatbot-messages" class="mb-3 border rounded p-2 bg-light"></div>
         <div class="input-group">
           <input type="text" id="chatbot-input" class="form-control" placeholder="Escribe tu pregunta...">
           <button class="btn btn-primary" type="button" id="chatbot-send"><i class="bi bi-send"></i></button>
@@ -206,17 +204,29 @@
         let lastPage = 1;
         const pageSize = 8;
 
+        let flow = {
+            intent: null,
+            step: 'idle', // idle | ask_space | ask_date
+            space: null
+        };
+
         function appendMessage(text, sender) {
             if (!messages) return;
             const div = document.createElement('div');
             div.className = sender === 'user' ? 'text-end mb-2' : 'text-start mb-2';
             const badge = sender === 'user' ? '<span class="badge bg-primary me-1">Tú</span>' : '<span class="badge bg-secondary me-1">Bot</span>';
-            div.innerHTML = `${badge}${text}`;
+            const safeText = (text || '')
+                .toString()
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\n/g, '<br>');
+            div.innerHTML = `${badge}${safeText}`;
             messages.appendChild(div);
             messages.scrollTop = messages.scrollHeight;
         }
 
-        function appendChips(chips) {
+        function appendChips(chips, onClick) {
             if (!messages || !chips) return;
             const wrap = document.createElement('div');
             wrap.className = 'mb-2';
@@ -226,28 +236,16 @@
                 btn.className = 'btn btn-sm btn-outline-primary me-1 mb-1';
                 btn.textContent = ch.label || ch.value;
                 btn.addEventListener('click', () => {
-                    input.value = ch.value || '';
-                    askBot(true);
+                    if (onClick) {
+                        onClick(ch.value || ch.label || '');
+                    } else {
+                        const v = ch.value || ch.label || '';
+                        sendQuestion(v);
+                    }
                 });
                 wrap.appendChild(btn);
             });
             messages.appendChild(wrap);
-            messages.scrollTop = messages.scrollHeight;
-        }
-
-        function appendCards(cards) {
-            if (!messages || !cards) return;
-            cards.forEach(card => {
-                const div = document.createElement('div');
-                div.className = 'card card-body p-2 mb-2';
-                div.innerHTML = `
-                    <div><strong>${card.space_name || 'Espacio'}</strong></div>
-                    <div class="small">Capacidad: ${card.capacity || '-'}</div>
-                    <div class="small">Piso: ${card.floor || '-'}</div>
-                    ${card.action_url ? `<a class="btn btn-sm btn-primary mt-2" href="${card.action_url}">Reservar</a>` : ''}
-                `;
-                messages.appendChild(div);
-            });
             messages.scrollTop = messages.scrollHeight;
         }
 
@@ -259,43 +257,153 @@
             btn.textContent = 'Ver más';
             btn.addEventListener('click', () => {
                 lastPage += 1;
-                askBot(false, true);
+                sendQuestion(lastQuestion, true);
             });
             messages.appendChild(btn);
             messages.scrollTop = messages.scrollHeight;
         }
 
-        async function askBot(fromChip=false, isLoadMore=false) {
-            const q = (input.value || lastQuestion || '').trim();
-            if (!q) return;
-            if (!isLoadMore) {
-                appendMessage(q, 'user');
-                lastQuestion = q;
-                lastPage = 1;
+        function showMainMenu() {
+            // Limpiar el contexto cuando se muestra el menú principal (nuevo flujo)
+            lastContext = {};
+            appendMessage('¿Deseas saber algo más?', 'bot');
+            appendChips([
+                {label: 'Disponibilidad', value: 'disponibilidad'},
+                {label: 'Ocupación', value: 'ocupación'},
+                {label: 'Espacios libres', value: 'espacios libres'},
+                {label: 'Capacidad', value: 'capacidad'}
+            ], (value) => handleIntent(value));
+        }
+
+        function promptSpecificSpace() {
+            appendMessage('¿Deseas saber de algún espacio en específico?', 'bot');
+            appendChips([
+                {label: 'Sí', value: 'si'},
+                {label: 'No', value: 'no'}
+            ], (value) => {
+                if (value === 'si') {
+                    flow = {intent: 'disponibilidad_especifica', step: 'ask_space', space: null};
+                    appendMessage('¿Qué aula o laboratorio deseas consultar? (ej: A-002)', 'bot');
+                } else {
+                    showMainMenu();
+                }
+            });
+        }
+
+        function resetFlow() {
+            flow = {intent: null, step: 'idle', space: null};
+            lastContext = {}; // Limpiar contexto al resetear
+            messages.innerHTML = '';
+            appendMessage('Hola, soy el asistente. ¿Qué deseas saber?', 'bot');
+            appendChips([
+                {label: 'Disponibilidad', value: 'disponibilidad'},
+                {label: 'Ocupación', value: 'ocupación'},
+                {label: 'Espacios libres', value: 'espacios libres'},
+                {label: 'Capacidad', value: 'capacidad'}
+            ], (value) => handleIntent(value));
+        }
+
+        function handleIntent(value) {
+            flow.intent = value;
+            // Limpiar contexto al iniciar un nuevo flujo (excepto si es continuación del flujo de espacios libres)
+            if (value !== 'espacios libres' || !lastContext.last_intent || lastContext.last_intent !== 'libres') {
+                lastContext = {}; // Limpiar contexto para nuevo flujo
             }
-            if (fromChip) {
-                lastQuestion = q;
+            if (value === 'capacidad') {
+                flow.step = 'ask_space';
+                appendMessage('¿De qué espacio deseas consultar la capacidad? (ej: A-002)', 'bot');
+                return;
+            }
+            if (value === 'ocupación' || value === 'disponibilidad') {
+                flow.step = 'ask_space';
+                appendMessage(`¿De qué espacio deseas consultar ${value}? (ej: A-002)`, 'bot');
+                return;
+            }
+            if (value === 'espacios libres') {
+                flow.step = 'ask_date';
+                appendMessage('¿Para qué fecha quieres ver espacios libres? (hoy, mañana, 29/01/2026)', 'bot');
+                appendChips([{label: 'Hoy', value: 'hoy'}, {label: 'Mañana', value: 'mañana'}], (v) => handleDate(v));
+            }
+        }
+
+        function handleSpace(spaceText) {
+            flow.space = spaceText;
+            if (flow.intent === 'disponibilidad_especifica' && lastContext.last_date) {
+                // Usar explícitamente la fecha del contexto sin depender del parser
+                const q = `disponibilidad ${flow.space}`;
+                // Enviar la fecha en el contexto explícitamente
+                const tempContext = {...lastContext};
+                sendQuestion(q, false, false, tempContext);
+                flow = {intent: null, step: 'idle', space: null};
+                return;
+            }
+            // Capacidad no necesita fecha, responder directamente
+            if (flow.intent === 'capacidad') {
+                const q = `capacidad ${flow.space}`;
+                sendQuestion(q, false, false);
+                flow = {intent: null, step: 'idle', space: null};
+                return;
+            }
+            // Disponibilidad y ocupación sí necesitan fecha
+            flow.step = 'ask_date';
+            appendMessage('¿Para qué fecha? (hoy, mañana, 29/01/2026)', 'bot');
+            appendChips([{label: 'Hoy', value: 'hoy'}, {label: 'Mañana', value: 'mañana'}], (v) => handleDate(v));
+        }
+
+        function handleDate(dateText) {
+            if (!flow.intent) {
+                // fallback
+                sendQuestion(dateText);
+                return;
+            }
+            let q = '';
+            if (flow.intent === 'espacios libres') {
+                q = `espacios libres ${dateText}`;
+            } else if (flow.intent === 'capacidad') {
+                q = `capacidad ${flow.space || ''}`;
+            } else {
+                q = `${flow.intent} ${flow.space || ''} ${dateText}`;
+            }
+            sendQuestion(q, false, false);
+            // reset for next
+            flow = {intent: null, step: 'idle', space: null};
+        }
+
+        async function sendQuestion(q, isLoadMore=false, echoUser=true, overrideContext=null) {
+            const question = (q || '').trim();
+            if (!question) return;
+            if (!isLoadMore) {
+                if (echoUser) {
+                    appendMessage(question, 'user');
+                }
+                lastQuestion = question;
                 lastPage = 1;
             }
             input.value = '';
+            const contextToSend = overrideContext || lastContext;
             try {
                 const resp = await fetch('/user/chatbot/query', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({question: lastQuestion, page: lastPage, page_size: pageSize, context: lastContext})
+                    body: JSON.stringify({question: lastQuestion, page: lastPage, page_size: pageSize, context: contextToSend})
                 });
                 const data = await resp.json();
                 appendMessage(data.answer || 'No entendí la pregunta.', 'bot');
                 if (data.type === 'clarify' && data.chips) {
                     appendChips(data.chips);
                 }
-                if (data.type === 'cards' && data.cards) {
-                    appendCards(data.cards);
-                }
                 const hasMore = data.data && data.data.has_more;
                 appendLoadMore(hasMore);
                 if (data.context) {
                     lastContext = {...lastContext, ...data.context};
+                }
+                // Si no hay aclaración ni paginación, volver al menú principal
+                if (!data.type && data.data && data.data.ask_specific) {
+                    promptSpecificSpace();
+                    return;
+                }
+                if (!data.type && !hasMore) {
+                    showMainMenu();
                 }
             } catch (e) {
                 console.error(e);
@@ -303,13 +411,35 @@
             }
         }
 
-        if (sendBtn) sendBtn.addEventListener('click', askBot);
+        if (sendBtn) sendBtn.addEventListener('click', () => {
+            const q = (input.value || '').trim();
+            if (!q) return;
+            if (flow.step === 'ask_space') {
+                appendMessage(q, 'user');
+                handleSpace(q);
+                input.value = '';
+                return;
+            }
+            if (flow.step === 'ask_date') {
+                appendMessage(q, 'user');
+                handleDate(q);
+                input.value = '';
+                return;
+            }
+            sendQuestion(q);
+        });
         if (input) input.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                askBot();
+                sendBtn.click();
             }
         });
+
+        // Reset al abrir modal
+        const modalEl = document.getElementById('chatbotModal');
+        if (modalEl) {
+            modalEl.addEventListener('shown.bs.modal', resetFlow);
+        }
     })();
 </script>
 {% endblock %}
