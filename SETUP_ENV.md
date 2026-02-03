@@ -115,6 +115,12 @@ PORT=5000
 
 **⚠️ IMPORTANTE:** Reemplaza los valores de `SUPABASE_URL` y `SUPABASE_KEY` con tus credenciales reales de Supabase.
 
+**Chatbot híbrido (opcional):** Para que el chatbot use DeepSeek para interpretar preguntas, agrega en `.env`:
+```
+DEEPSEEK_API_KEY=tu-api-key-de-34-caracteres
+```
+Opcional: `DEEPSEEK_API_URL` (por defecto `https://api.deepseek.com/v1/chat/completions`), `DEEPSEEK_CHATBOT_CONFIDENCE_THRESHOLD` (por defecto 0.6). Si no pones `DEEPSEEK_API_KEY` o DeepSeek falla (ej. sin créditos), el bot sigue funcionando con el parser rule-based.
+
 ---
 
 ### Paso 8: Ejecutar la aplicación

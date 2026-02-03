@@ -2,14 +2,26 @@ from datetime import date as date_module, timedelta
 from typing import Optional, Dict, Any, List, Tuple
 import re
 
+from flask import current_app
+
 from app.services.space_service import SpaceService
 from app.services.reservation_service import ReservationService
 from app.services.class_schedule_service import ClassScheduleService
 
 
+def _get_deepseek_slots(question: str, context: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Extrae intent + slots con DeepSeek. Si falla (créditos, red, etc.) retorna None."""
+    try:
+        from app.services.chatbot_deepseek_client import extract_slots_deepseek
+        return extract_slots_deepseek(question, context)
+    except Exception:
+        return None
+
+
 class ChatbotService:
     """
-    Chatbot rule-based básico para consultas de disponibilidad, ocupación y capacidad.
+    Chatbot híbrido: DeepSeek interpreta la pregunta (intent + slots); si falla o sin API key
+    se usa rule-based. La IA nunca decide disponibilidad; la respuesta final siempre sale de Supabase.
     """
 
     def __init__(self):
@@ -202,6 +214,80 @@ class ChatbotService:
     def _clarify(self, message: str, chips: List[Dict[str, str]]):
         return {"answer": message, "type": "clarify", "chips": chips, "data": {}}
 
+    def _resolve_intent_and_slots(
+        self,
+        question: str,
+        context: Optional[Dict[str, Any]],
+    ) -> Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]], Dict[str, Any], Dict[str, Any]]:
+        """
+        Resuelve intent + slots: primero DeepSeek; si falla o confianza baja, parser rule-based.
+        Retorna (intent, date_str, space_obj, filters, context_merge).
+        """
+        q = (question or "").strip()
+        ql = q.lower()
+        last_date = (context or {}).get("last_date")
+        last_space = (context or {}).get("last_space")
+        last_intent = (context or {}).get("last_intent")
+        context_merge = {"last_date": last_date, "last_space": last_space, "last_intent": last_intent}
+
+        threshold = 0.6
+        try:
+            if current_app:
+                threshold = float(current_app.config.get("DEEPSEEK_CHATBOT_CONFIDENCE_THRESHOLD", 0.6))
+        except Exception:
+            pass
+
+        nlp = _get_deepseek_slots(question, context)
+        if nlp and nlp.get("confidence", 0) >= threshold and nlp.get("intent"):
+            intent = nlp.get("intent")
+            # Siempre priorizar la fecha calculada en el servidor desde el texto del usuario
+            # (hoy/mañana/pasado mañana) para no depender de la fecha que devuelva la IA
+            date_str = self._parse_date(ql)
+            if not date_str:
+                date_str = (nlp.get("date") or "").strip() or None
+                if date_str and (len(date_str) != 10 or date_str.count("-") != 2):
+                    date_str = self._parse_date(date_str) or date_str
+            space_name = (nlp.get("space") or "").strip() or None
+            space_obj = self._find_space(space_name) if space_name else self._find_space(ql)
+            filters = isinstance(nlp.get("filters"), dict) and nlp["filters"] or {}
+            return (intent, date_str, space_obj, filters, context_merge)
+
+        # Fallback rule-based
+        date_str = self._parse_date(ql)
+        sp_check = self._find_space(ql)
+        if not date_str and sp_check and last_date and last_intent == "libres" and "disponibilidad" in ql:
+            date_str = last_date
+
+        if any(k in ql for k in ["ayuda", "ayudar", "qué haces", "que haces", "ayúdame", "ayudame"]):
+            return ("ayuda", date_str, sp_check, {}, context_merge)
+        if any(k in ql for k in ["capacidad", "cuántas personas", "cuantos caben", "cuántos caben"]):
+            return ("capacidad", date_str, self._find_space(ql), {}, context_merge)
+        if any(k in ql for k in ["ocupado", "ocupación", "reservas", "reservado", "bloques", "horario", "disponibilidad"]):
+            sp = sp_check or last_space
+            if not date_str and last_intent == "libres" and last_date:
+                date_str = last_date
+            return ("ocupacion", date_str, sp, {}, context_merge)
+        is_libres = any(k in ql for k in ["libre", "disponible", "libres", "disponibles", "disponibilidad"]) or (last_intent == "libres")
+        if is_libres:
+            sp_specific = sp_check or self._find_space(ql)
+            if not date_str and last_intent == "libres" and last_date:
+                date_str = last_date
+            filters = {}
+            if "laboratorio" in ql:
+                filters["type"] = "laboratorio"
+            elif "aula" in ql:
+                filters["type"] = "aula"
+            elif "auditorio" in ql:
+                filters["type"] = "auditorio"
+            if "piso 1" in ql or "piso1" in ql:
+                filters["floor"] = "piso_1"
+            elif "piso 2" in ql or "piso2" in ql:
+                filters["floor"] = "piso_2"
+            if "capacidad 30" in ql or "30+" in ql:
+                filters["min_capacity"] = 30
+            return ("libres", date_str, sp_specific, filters, context_merge)
+        return (None, date_str, sp_check, {}, context_merge)
+
     def answer(self, question: str, context: Optional[Dict[str, Any]] = None, page: int = 1, page_size: int = 8) -> Dict[str, Any]:
         q = (question or "").strip()
         if not q:
@@ -210,35 +296,20 @@ class ChatbotService:
         last_date = (context or {}).get("last_date")
         last_space = (context or {}).get("last_space")
         last_intent = (context or {}).get("last_intent")
-        is_libres_intent = any(k in ql for k in ["libre", "disponible", "libres", "disponibles", "disponibilidad"]) or (last_intent == "libres")
-        
-        # Primero intentar parsear la fecha de la pregunta actual
-        # IMPORTANTE: Parsear ANTES de buscar el espacio para evitar interferencias
-        date_str = self._parse_date(ql)
-        
-        # Buscar espacio después de parsear la fecha
-        sp_check = self._find_space(ql)
-        
-        # Solo usar last_date del contexto si:
-        # 1. No se encontró fecha en la pregunta actual Y
-        # 2. Es parte del mismo flujo continuo (disponibilidad_especifica después de espacios libres)
-        if not date_str:
-            # Solo usar last_date si es parte del flujo continuo de "disponibilidad_especifica"
-            # (cuando se pregunta por un espacio específico después de listar espacios libres)
-            if sp_check and last_date and last_intent == "libres" and "disponibilidad" in ql:
-                date_str = last_date
-            # NO usar last_date en otros casos - si no hay fecha, pedirla
 
-        # Ayuda
-        if any(k in ql for k in ["ayuda", "ayudar", "qué haces", "que haces", "ayúdame", "ayudame"]):
+        intent, date_str, space_obj, filters, ctx_merge = self._resolve_intent_and_slots(question, context)
+        last_date = ctx_merge.get("last_date")
+        last_space = ctx_merge.get("last_space")
+        last_intent = ctx_merge.get("last_intent")
+
+        if intent == "ayuda":
             return {
                 "answer": "Consultas rápidas: capacidad, ocupación y espacios libres. Ej: 'capacidad A-002', 'ocupación A-002 hoy', 'espacios libres mañana'.",
                 "data": {},
             }
 
-        # Intent: capacidad
-        if any(k in ql for k in ["capacidad", "cuántas personas", "cuantos caben", "cuántos caben"]):
-            sp = self._find_space(ql)
+        if intent == "capacidad":
+            sp = space_obj or self._find_space(ql)
             if not sp:
                 return {"answer": "No encontré el espacio, especifica el nombre (ej: A-002).", "data": {}}
             answer = (
@@ -247,22 +318,17 @@ class ChatbotService:
             )
             return {"answer": answer, "data": {"space": sp}, "context": {"last_space": sp}}
 
-        # Intent: ocupación / reservas / disponibilidad
-        if any(k in ql for k in ["ocupado", "ocupación", "reservas", "reservado", "bloques", "horario", "disponibilidad"]):
-            sp = self._find_space(ql) or last_space
+        if intent == "ocupacion":
+            sp = space_obj or last_space
             if not sp:
                 return {"answer": "No encontré el espacio, especifica el nombre (ej: A-002).", "data": {}}
-            # Si es parte del flujo de "libres" (después de listar espacios libres), usar la fecha guardada
             if not date_str and last_intent == "libres" and last_date:
                 date_str = last_date
-            # Si no hay fecha parseada ni en contexto, pedirla
             if not date_str:
-                # Solo usar last_date si es parte del mismo flujo continuo (no nuevo flujo)
                 if last_space and last_space.get("id") == sp.get("id") and last_date:
                     date_str = last_date
                 else:
                     return self._clarify("¿Para qué fecha? (hoy, mañana, 29/01/2026)", [{"label": "Hoy", "value": "hoy"}, {"label": "Mañana", "value": "mañana"}])
-            # Validar que date_str sea una fecha válida
             if not date_str or len(date_str) < 8:
                 return self._clarify("¿Para qué fecha? (hoy, mañana, 29/01/2026)", [{"label": "Hoy", "value": "hoy"}, {"label": "Mañana", "value": "mañana"}])
             occ = self._get_occupancy(sp["id"], date_str)
@@ -286,75 +352,58 @@ class ChatbotService:
                 "context": {"last_date": date_str, "last_space": sp},
             }
 
-        # Intent: libres
-        if is_libres_intent:
-            # solo tomar espacio si viene en esta consulta, no por contexto
-            # Reutilizar sp_check si ya lo tenemos, sino buscarlo
-            sp_specific = sp_check if sp_check else self._find_space(ql)
+        if intent == "libres":
+            sp_specific = space_obj if space_obj else self._find_space(ql)
             if sp_specific:
-                # Si es parte del flujo continuo de "libres" (después de listar espacios libres), usar la fecha guardada
                 if not date_str and last_intent == "libres" and last_date:
                     date_str = last_date
-                # Si no hay fecha parseada ni en contexto, pedirla
                 if not date_str:
                     res = self._clarify("¿Para qué fecha? (hoy, mañana, 29/01/2026)", [{"label": "Hoy", "value": "hoy"}, {"label": "Mañana", "value": "mañana"}])
                     res["context"] = {"last_intent": "libres", "last_space": sp_specific}
                     return res
                 occ = self._get_occupancy(sp_specific["id"], date_str)
                 if not occ["all"]:
-                    # Mantener el contexto del flujo de "libres" con la fecha
                     return {"answer": f"{sp_specific.get('name')} está libre el {date_str}.", "data": occ, "context": {"last_date": date_str, "last_space": sp_specific, "last_intent": "libres"}}
                 fb = occ.get("free_blocks", [])
                 if fb and len(fb) == 1 and fb[0] == ("07:00", "22:00"):
                     return {"answer": f"{sp_specific.get('name')} está libre el {date_str} (todo el día: 07:00-22:00).", "data": occ, "context": {"last_date": date_str, "last_space": sp_specific, "last_intent": "libres"}}
                 libres_txt = "; ".join([f"{a}-{b}" for a, b in occ.get("free_blocks", [])]) or "sin bloques libres"
                 answer = f"{sp_specific.get('name')} ({date_str}): Ocupado: {occ['summary']}. Libre: {libres_txt}"
-                # Mantener el contexto del flujo de "libres" con la fecha
                 return {"answer": answer, "data": occ, "context": {"last_date": date_str, "last_space": sp_specific, "last_intent": "libres"}}
             if not date_str:
                 res = self._clarify("¿Para qué fecha quieres ver espacios libres? (hoy, mañana, 29/01/2026)", [{"label": "Hoy", "value": "hoy"}, {"label": "Mañana", "value": "mañana"}])
                 res["context"] = {"last_intent": "libres"}
                 return res
-            # filtros simples por tipo/piso/capacidad
             free = self._get_free_spaces(date_str)
-            # type filter
-            if "laboratorio" in ql:
-                free = [sp for sp in free if (sp.get("type") or "").lower() == "laboratorio"]
-            if "aula" in ql:
-                free = [sp for sp in free if (sp.get("type") or "").lower() == "aula"]
-            if "auditorio" in ql:
-                free = [sp for sp in free if (sp.get("type") or "").lower() == "auditorio"]
-            if "piso 1" in ql or "piso1" in ql:
-                free = [sp for sp in free if (sp.get("floor") or "").lower() == "piso_1"]
-            if "piso 2" in ql or "piso2" in ql:
-                free = [sp for sp in free if (sp.get("floor") or "").lower() == "piso_2"]
-            if "capacidad 30" in ql or "30+" in ql:
-                free = [sp for sp in free if sp.get("capacity", 0) >= 30]
+            if filters.get("type") == "laboratorio":
+                free = [s for s in free if (s.get("type") or "").lower() == "laboratorio"]
+            elif filters.get("type") == "aula":
+                free = [s for s in free if (s.get("type") or "").lower() == "aula"]
+            elif filters.get("type") == "auditorio":
+                free = [s for s in free if (s.get("type") or "").lower() == "auditorio"]
+            if filters.get("floor") == "piso_1":
+                free = [s for s in free if (s.get("floor") or "").lower() == "piso_1"]
+            elif filters.get("floor") == "piso_2":
+                free = [s for s in free if (s.get("floor") or "").lower() == "piso_2"]
+            if filters.get("min_capacity"):
+                free = [s for s in free if s.get("capacity", 0) >= filters["min_capacity"]]
             total = len(free)
             if not free:
                 return {"answer": f"No encontré espacios libres en {date_str}.", "data": {}}
-            # agrupar por piso
             order = ["planta_baja", "piso_1", "piso_2", "sin_piso"]
-            labels = {
-                "planta_baja": "Planta baja",
-                "piso_1": "Piso 1",
-                "piso_2": "Piso 2",
-                "sin_piso": "Sin piso",
-            }
+            labels = {"planta_baja": "Planta baja", "piso_1": "Piso 1", "piso_2": "Piso 2", "sin_piso": "Sin piso"}
             grouped_lines = []
             for floor in order:
-                group = [sp for sp in free if (sp.get("floor") or "sin_piso") == floor]
+                group = [s for s in free if (s.get("floor") or "sin_piso") == floor]
                 if not group:
                     continue
-                items = "\n".join([f"  • {sp.get('name','-')} (cap {sp.get('capacity','-')})" for sp in group])
+                items = "\n".join([f"  • {s.get('name','-')} (cap {s.get('capacity','-')})" for s in group])
                 grouped_lines.append(f"{labels.get(floor, floor)}:\n{items}")
             answer = f"Libres el {date_str} ({total}):\n" + "\n".join(grouped_lines)
-            # IMPORTANTE: Guardar la fecha y el intent "libres" para usar en consultas específicas posteriores
             return {
                 "answer": answer,
                 "data": {"free_spaces": free, "total": total, "ask_specific": True},
                 "context": {"last_date": date_str, "last_intent": "libres"},
             }
 
-        # Fallback
         return {"answer": "Consultas rápidas: 'capacidad A-002', 'ocupación A-002 hoy', 'espacios libres mañana'.", "data": {}}
