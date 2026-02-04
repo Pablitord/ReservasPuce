@@ -215,6 +215,32 @@ class ChatbotService:
     def _clarify(self, message: str, chips: List[Dict[str, str]]):
         return {"answer": message, "type": "clarify", "chips": chips, "data": {}}
 
+    def _is_help_like(self, text: str) -> bool:
+        t = (text or "").lower()
+        patterns = [
+            r"\b(hola|buenas|buenos dias|buenas tardes|buenas noches)\b",
+            r"\b(quien eres|quién eres|que eres|qué eres)\b",
+            r"\b(que haces|qué haces|que hace|qué hace)\b",
+            r"\b(para que sirve|para qué sirve|como funciona|cómo funciona)\b",
+            r"\b(que puedo hacer|qué puedo hacer|que puedo preguntar|qué puedo preguntar)\b",
+            r"\b(como uso|cómo uso|como se usa|cómo se usa)\b",
+            r"\b(ayuda|ayudame|ayúdame|ayudar)\b",
+        ]
+        return any(re.search(p, t) for p in patterns)
+
+    def _help_reply(self, text: str) -> str:
+        t = (text or "").lower()
+        examples = "Ej: 'capacidad A-002', 'ocupación A-002 hoy', 'espacios libres mañana'."
+        if re.search(r"\b(hola|buenas|buenos dias|buenas tardes|buenas noches)\b", t):
+            return f"Hola, soy el asistente de consultas. Puedo ayudarte con capacidad, ocupación y espacios libres. {examples}"
+        if re.search(r"\b(quien eres|quién eres|que eres|qué eres)\b", t):
+            return f"Soy el asistente de consultas de reservas. Te ayudo con capacidad, ocupación y espacios libres. {examples}"
+        if re.search(r"\b(como funciona|cómo funciona|como se usa|cómo se usa|como uso|cómo uso)\b", t):
+            return f"Escribe lo que necesitas: capacidad, ocupación o espacios libres. También puedes usar los botones. {examples}"
+        if re.search(r"\b(que puedo hacer|qué puedo hacer|que puedo preguntar|qué puedo preguntar)\b", t):
+            return f"Puedo responder consultas rápidas sobre espacios. {examples}"
+        return f"Consultas rápidas: capacidad, ocupación y espacios libres. {examples}"
+
     def _resolve_intent_and_slots(
         self,
         question: str,
@@ -260,7 +286,7 @@ class ChatbotService:
         if not date_str and sp_check and last_date and last_intent == "libres" and "disponibilidad" in ql:
             date_str = last_date
 
-        if any(k in ql for k in ["ayuda", "ayudar", "qué haces", "que haces", "ayúdame", "ayudame"]):
+        if self._is_help_like(ql):
             return ("ayuda", date_str, sp_check, {}, context_merge, None)
         if any(k in ql for k in ["capacidad", "cuántas personas", "cuantos caben", "cuántos caben"]):
             return ("capacidad", date_str, self._find_space(ql), {}, context_merge, None)
@@ -313,7 +339,7 @@ class ChatbotService:
 
         if intent == "ayuda":
             return {
-                "answer": "Consultas rápidas: capacidad, ocupación y espacios libres. Ej: 'capacidad A-002', 'ocupación A-002 hoy', 'espacios libres mañana'.",
+                "answer": self._help_reply(ql),
                 "data": {},
             }
 
