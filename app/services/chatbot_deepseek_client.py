@@ -16,13 +16,15 @@ Tu única tarea es interpretar la pregunta del usuario y devolver un JSON con:
 - date: fecha en YYYY-MM-DD si el usuario menciona una (hoy, mañana, 5 de febrero, 29/01/2026, etc.). null si no hay.
 - space: nombre del espacio/aula si se menciona (ej: A-002, A002, aula 107). null si no.
 - filters: objeto con type (aula|laboratorio|auditorio), floor (piso_1|piso_2|planta_baja), min_capacity (número). Solo incluir keys que el usuario pida. {} si ninguno.
-- confidence: número entre 0 y 1 indicando tu confianza en la interpretación.
+- confidence: número entre 0 y 1. Usa confianza baja (ej. 0.3) si la pregunta no es sobre reservas/espacios o es ambigua.
+- secondary_intent: si el usuario pide DOS cosas distintas en una frase (ej. "capacidad del A-002 y cuándo está libre"), pon aquí el segundo intent ("capacidad", "ocupacion", "libres"). null si solo pide una cosa.
 
 Reglas:
 - capacidad = preguntar cuántas personas caben o datos del espacio.
 - ocupacion = preguntar si está ocupado, horarios, bloques, reservas de un espacio en una fecha.
 - libres = listar espacios libres (puede ser en una fecha; opcionalmente filtrar por tipo/piso).
 - ayuda = pedir ayuda o qué puede hacer el bot.
+- unknown = la pregunta no es sobre espacios, reservas, capacidad u ocupación (ej. tiempo, deportes, otra cosa). Pon confidence baja.
 Responde ÚNICAMENTE con un JSON válido, sin markdown ni texto extra."""
 
 
@@ -103,12 +105,16 @@ def extract_slots_deepseek(question: str, context: Optional[Dict[str, Any]] = No
         if not isinstance(filters, dict):
             filters = {}
         confidence = float(parsed.get("confidence", 0.0))
+        sec = (parsed.get("secondary_intent") or "").strip().lower() or None
+        if sec and sec not in ("capacidad", "ocupacion", "libres", "ayuda"):
+            sec = None
         return {
             "intent": intent,
             "date": date_val,
             "space": space_val,
             "filters": filters,
             "confidence": max(0.0, min(1.0, confidence)),
+            "secondary_intent": sec,
         }
     except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError, KeyError, TypeError, ValueError):
         return None
