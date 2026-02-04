@@ -1,8 +1,8 @@
 # CONTEXTO COMPLETO DEL PROYECTO - ReservasPuce
 
-**Fecha de última actualización:** Enero 2026  
+**Fecha de última actualización:** Febrero 2026  
 **Estado:** En desarrollo activo  
-**Próxima funcionalidad:** Implementación de Chatbot con procesamiento de lenguaje natural
+**Próxima funcionalidad:** Ajustes de UI/UX (diseño institucional)
 
 ---
 
@@ -112,9 +112,13 @@ ReservasPuce/
 │   ├── services/                   # Lógica de negocio
 │   │   ├── __init__.py
 │   │   ├── auth_service.py         # Registro, login, autenticación
-│   │   ├── reservation_service.py  # CRUD reservas, aprobar/rechazar
+│   │   ├── reservation_service.py  # CRUD reservas, aprobar/rechazar/cancelar
 │   │   ├── space_service.py        # Gestión de espacios
 │   │   ├── notification_service.py # Gestión de notificaciones
+│   │   ├── email_service.py        # Envío de correos (HTML + async)
+│   │   ├── class_schedule_service.py # Horarios de clases (aulas)
+│   │   ├── chatbot_service.py      # Chatbot de consultas (rule-based + híbrido)
+│   │   ├── chatbot_deepseek_client.py # Cliente DeepSeek (intent + slots)
 │   │   └── admin_service.py        # Estadísticas y operaciones admin
 │   │
 │   ├── repositories/
@@ -124,6 +128,8 @@ ReservasPuce/
 │   │       ├── user_repo.py        # CRUD usuarios
 │   │       ├── space_repo.py       # CRUD espacios
 │   │       ├── reservation_repo.py # CRUD reservas, validaciones
+│   │       ├── class_schedule_repo.py # CRUD horarios de clases
+│   │       ├── reservation_deletion_repo.py # Bitácora de eliminaciones
 │   │       └── notification_repo.py # CRUD notificaciones
 │   │
 │   ├── templates/                  # Templates HTML (Jinja2)
@@ -138,12 +144,16 @@ ReservasPuce/
 │   │   ├── user/
 │   │   │   ├── calendar.html
 │   │   │   ├── reserve_form.html
+│   │   │   ├── reserve_edit.html
 │   │   │   ├── my_reservations.html
 │   │   │   └── reservation_detail.html
 │   │   └── admin/
 │   │       ├── dashboard.html
 │   │       ├── reservations.html
 │   │       ├── reservation_detail.html
+│   │       ├── schedules.html
+│   │       ├── schedule_edit.html
+│   │       ├── deletions.html
 │   │       └── create_admin.html
 │   │
 │   ├── static/
@@ -201,6 +211,7 @@ ReservasPuce/
 - type (VARCHAR(50), NOT NULL, CHECK IN ('aula', 'laboratorio', 'auditorio'))
 - floor (VARCHAR(20), NOT NULL, CHECK IN ('planta_baja', 'piso_1', 'piso_2'))
 - capacity (INTEGER, NOT NULL)
+- lab_category (VARCHAR(20), NULL, CHECK IN ('computacion','medicina'))
 - description (TEXT)
 - created_at (TIMESTAMP WITH TIME ZONE)
 - updated_at (TIMESTAMP WITH TIME ZONE)
@@ -247,6 +258,32 @@ ReservasPuce/
 - created_at (TIMESTAMP WITH TIME ZONE)
 ```
 
+#### 5. `class_schedules`
+```sql
+- id (UUID, PK)
+- space_id (UUID, FK -> spaces.id, ON DELETE CASCADE)
+- weekday (SMALLINT, 0=lunes ... 6=domingo)
+- start_time (TIME)
+- end_time (TIME)
+- description (TEXT)
+- created_at (TIMESTAMP WITH TIME ZONE)
+- updated_at (TIMESTAMP WITH TIME ZONE)
+```
+
+#### 6. `reservation_deletions`
+```sql
+- id (UUID, PK)
+- reservation_id (UUID)
+- user_id (UUID)
+- space_id (UUID)
+- date (DATE)
+- start_time (TIME)
+- end_time (TIME)
+- admin_id (UUID, NULL si cancela usuario)
+- reason (TEXT)
+- created_at (TIMESTAMP WITH TIME ZONE)
+```
+
 ### Índices
 - `idx_reservations_user_id`
 - `idx_reservations_space_id`
@@ -288,6 +325,9 @@ SMTP_USER=tu-usuario
 SMTP_PASSWORD=tu-password
 SMTP_FROM=reservas@puce.edu.ec
 SMTP_USE_TLS=True
+DEEPSEEK_API_KEY=tu-api-key
+DEEPSEEK_API_URL=https://api.deepseek.com/v1/chat/completions
+DEEPSEEK_CHATBOT_CONFIDENCE_THRESHOLD=0.6
 ```
 
 ### Configuración en `app/config.py`
@@ -299,6 +339,8 @@ SMTP_USE_TLS=True
 - `HOST`: Host del servidor (default: 127.0.0.1)
 - `PORT`: Puerto del servidor (default: 5000)
 - `SMTP_*`: Configuración de correo para verificación y notificaciones
+- `DEEPSEEK_*`: Configuración opcional para interpretar consultas del chatbot (híbrido)
+- `DEEPSEEK_*`: Configuración opcional para interpretación de chatbot (híbrido)
 
 **Importante:** El archivo `.env` debe estar en la raíz (`ReservasPuce/.env`), no en `app/.env`.
 
@@ -324,7 +366,10 @@ SMTP_USE_TLS=True
 | `/user/reserve` | GET, POST | Formulario de reserva | Login requerido |
 | `/user/my_reservations` | GET | Mis reservas | Login requerido |
 | `/user/my_reservations/<id>` | GET | Detalle de reserva | Login requerido |
+| `/user/reservations/<id>/edit` | GET, POST | Editar reserva pendiente | Login requerido |
+| `/user/reservations/<id>/cancel` | POST | Cancelar reserva pendiente | Login requerido |
 | `/user/api/reservations` | GET | API para calendario (JSON) | Login requerido |
+| `/user/chatbot/query` | POST | Chatbot de consultas (rule-based + DeepSeek) | Login requerido |
 
 **Query params de `/user/api/reservations`:**
 - `space_id` (opcional): Filtrar por espacio específico
@@ -340,6 +385,10 @@ SMTP_USE_TLS=True
 | `/admin/reservations/<id>/approve` | POST | Aprobar reserva | Admin requerido |
 | `/admin/reservations/<id>/reject` | POST | Rechazar reserva (requiere `rejection_reason`) | Admin requerido |
 | `/admin/create_admin` | GET, POST | Crear nuevo administrador | Admin requerido |
+| `/admin/schedules` | GET, POST | CRUD de horarios de clases | Admin requerido |
+| `/admin/schedules/<id>/edit` | GET, POST | Editar horario | Admin requerido |
+| `/admin/schedules/<id>/delete` | POST | Eliminar horario | Admin requerido |
+| `/admin/deletions` | GET | Bitácora de eliminaciones | Admin requerido |
 
 **Query params de `/admin/reservations`:**
 - `status` (opcional): Filtrar por estado (`pending`, `approved`, `rejected`, `all`)
@@ -442,6 +491,20 @@ SMTP_USE_TLS=True
 - `get_pending_reservations()` → `List[reservations]`
 - `get_all_reservations()` → `List[reservations]`
 
+### ClassScheduleService (`app/services/class_schedule_service.py`)
+- CRUD de horarios de clases (`class_schedules`)
+- Validación de solapes y horarios válidos
+- `find_conflict_with_class()` para detectar choques con reservas
+
+### EmailService (`app/services/email_service.py`)
+- Envío de correo en formato HTML
+- Envío asíncrono para no bloquear la UI
+
+### ChatbotService (`app/services/chatbot_service.py`)
+- Chatbot de consultas rápidas (capacidad, ocupación, espacios libres)
+- Híbrido: usa DeepSeek para intent/slots y fallback rule-based
+- Respuesta final siempre desde Supabase
+
 ---
 
 ## 💽 REPOSITORIOS (CAPA DE DATOS)
@@ -484,6 +547,14 @@ SMTP_USE_TLS=True
 - `check_time_conflict(space_id, date, start_time, end_time, exclude_id=None)` → `bool`
   - Compara horarios con `datetime.time` objects
   - Retorna `True` si hay conflicto
+
+### ClassScheduleRepository (`app/repositories/supabase/class_schedule_repo.py`)
+- CRUD de `class_schedules`
+- Filtros por espacio y día de la semana
+
+### ReservationDeletionRepository (`app/repositories/supabase/reservation_deletion_repo.py`)
+- Registro de eliminaciones/cancelaciones con motivo
+- Filtros por espacio/usuario/admin/rango de fechas
 
 **Nota crítica:** Cuando se hace join con `users`, usar `users!reservations_user_id_fkey(*)` para especificar la relación correcta y evitar errores de ambigüedad.
 
@@ -536,6 +607,7 @@ SMTP_USE_TLS=True
 - Contenedor para FullCalendar (`#calendar`)
 - Carga FullCalendar desde CDN (`index.global.min.js`)
 - Carga `calendar.js` dinámicamente después de FullCalendar
+- Modal de chatbot con botón flotante, burbujas de mensajes y chips para el flujo guiado
 
 **`user/reserve_form.html`**
 - Selector de piso + selector de espacio con `optgroup` por piso
@@ -604,6 +676,7 @@ SMTP_USE_TLS=True
 - Ajustes de texto (`word-wrap`, `overflow-wrap`, `white-space`)
 - Estilos de eventos del calendario
 - Responsive design
+- Estilo institucional: headers con subtítulo, cards/sections, botones con gradiente, badges pill, modales estilizados y burbujas del chatbot
 
 ---
 
@@ -881,20 +954,12 @@ ALTER TABLE reservations
 
 ### En Desarrollo
 
-- [ ] **Chatbot con procesamiento de lenguaje natural**
-  - Consultar disponibilidad de espacios
-  - Consultar capacidad de espacios
-  - Listar espacios disponibles
-  - Consultar reservas del usuario
-  - Interfaz de chat con sugerencias
+- [ ] Ajustes de diseño (UI/UX) finos y consistentes entre vistas
 
 ### Pendientes
 
-- [ ] Edición de reservas
-- [ ] Cancelación de reservas
 - [ ] Filtros avanzados en el calendario
 - [ ] Exportar calendario (iCal)
-- [ ] Notificaciones por email
 - [ ] Historial de cambios de reservas
 - [ ] Búsqueda de espacios
 - [ ] Vista de calendario semanal/diaria
@@ -903,17 +968,20 @@ ALTER TABLE reservations
 
 ---
 
-## 🆕 ACTUALIZACIONES RECIENTES (Ene 2026)
+## 🆕 ACTUALIZACIONES RECIENTES (Feb 2026)
 
-- Chatbot (rule-based) como asistente de consultas rápidas en `/user/calendar`:
+- Chatbot híbrido (DeepSeek + rule-based) como asistente de consultas rápidas en `/user/calendar`:
   - Intents soportados: capacidad/datos de espacio, ocupación de un espacio en una fecha, espacios libres en una fecha.
   - Busca espacios tolerando nombres como A002 vs A-002.
   - Ocupación combina clases (`class_schedules`) y reservas (pending/approved), mostrando bloques ocupados y libres; si está libre todo el día, lo indica.
   - Espacios libres agrupados por piso, en texto, sin acciones de reserva; requiere fecha (hoy/mañana/fecha). Si se pide disponibilidad sin fecha, pide aclararla con chips.
-  - Respuestas cortas, sin emoticonos; solo ayuda breve cuando no entiende.
+  - Respuestas cortas, sin emoticonos; ayuda amigable cuando preguntan “qué hace/qué puedo preguntar”, etc.
   - Endpoint: `POST /user/chatbot/query`, UI: modal con botón flotante en calendario.
   - Contexto mínimo (last_date, last_space) solo para seguir fecha/espacio en consultas inmediatas.
   - Sin flujo de reserva desde el chat (solo consulta).
+- DeepSeek solo interpreta intent+slots; la disponibilidad la calcula Supabase. Si DeepSeek falla o no hay créditos, el bot usa el parser rule-based.
+- Variables nuevas `.env`: `DEEPSEEK_API_KEY`, `DEEPSEEK_API_URL`, `DEEPSEEK_CHATBOT_CONFIDENCE_THRESHOLD`.
+- UI del chat: burbujas de mensajes (usuario azul, bot gris), modal más ancho, botón flotante con gradiente.
 - Correos: HTML más descriptivos; envío asíncrono para no bloquear la UI; admins reciben correo en nuevas solicitudes.
 - Horarios de clases por aula (`class_schedules`): bloquean reservas, se muestran en el formulario; admin CRUD en “Horarios aulas”.
 - Reservas del día: al elegir aula/fecha en el formulario se listan reservas pendientes/aprobadas de ese día.
@@ -923,6 +991,7 @@ ALTER TABLE reservations
 - Eliminación por admin: requiere justificación en modal; notifica al usuario con motivo; registra en bitácora.
 - Bitácora de eliminaciones (`reservation_deletions`): vista “Bitácora eliminaciones” con filtros por espacio, usuario, admin, rango de fechas.
 - UX formulario: botón Enviar se deshabilita si hay solape con clases/otras reservas o fin<=inicio; se muestra nota indicando el motivo.
+- Rediseño UI/UX institucional: headers con subtítulo, cards con borde/sombra, botones con gradiente, inputs más suaves, badges “pill”, tablas con mejor espaciado y modales con encabezados estilizados.
 - Verificación de cuenta por código de correo (nuevo endpoint `/auth/verify`).
 - Confirmación de reserva por email, recordatorios diarios y correo al aprobar/rechazar.
 
@@ -976,7 +1045,7 @@ ALTER TABLE reservations
 ## 🎯 ESTADO ACTUAL DEL PROYECTO
 
 **Versión:** 1.0 (Funcional, con mejoras pendientes)  
-**Última actualización:** Enero 2026
+**Última actualización:** Febrero 2026
 
 ### Funcionalidades Completas
 - ✅ Autenticación completa
@@ -987,7 +1056,7 @@ ALTER TABLE reservations
 - ✅ Validaciones y conflictos
 
 ### Próximo Paso
-- 🔄 Implementar Chatbot con NLP básico para aumentar complejidad del proyecto
+- 🔄 Refinar UI/UX institucional y consistencia visual
 
 ---
 
@@ -1001,4 +1070,4 @@ ALTER TABLE reservations
 ---
 
 **Documento creado para facilitar la continuación del desarrollo desde cualquier ubicación.**  
-**Última actualización:** Enero 2026
+**Última actualización:** Febrero 2026
