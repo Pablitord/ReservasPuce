@@ -4,16 +4,21 @@
 
 {% block content %}
 <div class="container">
+    <div class="page-header">
+        <div>
+            <h2 class="page-title"><i class="bi bi-file-text"></i> Detalle de reserva</h2>
+            <div class="page-subtitle">Revisa la información antes de aprobar, rechazar o eliminar.</div>
+        </div>
+    </div>
     <div class="row justify-content-center">
         <div class="col-md-8">
-            <div class="card shadow">
+            <div class="card shadow section-card">
                 <div class="card-header bg-primary text-white">
                     <h3 class="mb-0"><i class="bi bi-file-text"></i> Detalle de Reserva</h3>
                 </div>
                 <div class="card-body">
                     <div class="mb-4">
-                        <h5>Información del Espacio</h5>
-                        <hr>
+                        <div class="section-title">Información del espacio</div>
                         {% if reservation.spaces %}
                             {% if reservation.spaces is mapping %}
                                 {% set space_obj = reservation.spaces %}
@@ -25,6 +30,7 @@
                         {% else %}
                             {% set space_obj = None %}
                         {% endif %}
+                        <div class="info-block">
                         <p><strong>Espacio:</strong> 
                             {% if space_obj %}
                                 {{ space_obj.name }}
@@ -57,11 +63,12 @@
                                 N/A
                             {% endif %}
                         </p>
+                        </div>
                     </div>
-                    
+                    <div class="section-divider"></div>
                     <div class="mb-4">
-                        <h5>Información del Estudiante</h5>
-                        <hr>
+                        <div class="section-title">Información del estudiante</div>
+                        <div class="info-block">
                         <p><strong>Nombre:</strong> 
                             {% if reservation.users %}
                                 {{ reservation.users.name }}
@@ -89,43 +96,43 @@
                                 N/A
                             {% endif %}
                         </p>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <h5>Detalles de la Reserva</h5>
-                        <hr>
-                        <p><strong>Fecha:</strong> {{ reservation.date }}</p>
-                        <p><strong>Hora:</strong> {{ reservation.start_time }} - {{ reservation.end_time }}</p>
-                        <p><strong>Estado:</strong> 
-                            {% if reservation.status == 'approved' %}
-                                <span class="badge bg-success">Aprobada</span>
-                            {% elif reservation.status == 'pending' %}
-                                <span class="badge bg-warning">Pendiente</span>
-                            {% else %}
-                                <span class="badge bg-danger">Rechazada</span>
-                            {% endif %}
-                        </p>
-                        <p><strong>Justificación:</strong></p>
-                        <div class="alert alert-light">
-                            {{ reservation.justification }}
                         </div>
-                        <p><strong>Solicitada el:</strong> {{ reservation.created_at[:10] }} a las {{ reservation.created_at[11:16] }}</p>
+                    </div>
+                    <div class="section-divider"></div>
+                    <div class="mb-4">
+                        <div class="section-title">Detalles de la reserva</div>
+                        <div class="info-block">
+                            <p><strong>Fecha:</strong> {{ reservation.date }}</p>
+                            <p><strong>Hora:</strong> {{ reservation.start_time }} - {{ reservation.end_time }}</p>
+                            <p><strong>Estado:</strong> 
+                                {% if reservation.status == 'approved' %}
+                                    <span class="badge bg-success badge-status">Aprobada</span>
+                                {% elif reservation.status == 'pending' %}
+                                    <span class="badge bg-warning badge-status">Pendiente</span>
+                                {% else %}
+                                    <span class="badge bg-danger badge-status">Rechazada</span>
+                                {% endif %}
+                            </p>
+                            <p><strong>Justificación:</strong></p>
+                            <div class="alert alert-light mb-2">
+                                {{ reservation.justification }}
+                            </div>
+                            <p class="mb-0"><strong>Solicitada el:</strong> {{ reservation.created_at[:10] }} a las {{ reservation.created_at[11:16] }}</p>
+                        </div>
                     </div>
                     
                     {% if reservation.status == 'pending' %}
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <div class="action-bar justify-content-md-end mt-2">
                         <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
                             <i class="bi bi-x-circle"></i> Rechazar
                         </button>
-                        <form method="POST" action="{{ url_for('admin.approve_reservation', reservation_id=reservation.id) }}" style="display: inline;">
-                            <button type="submit" class="btn btn-success" onclick="return confirm('¿Aprobar esta reserva?');">
-                                <i class="bi bi-check-circle"></i> Aprobar
-                            </button>
-                        </form>
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#approveModal">
+                            <i class="bi bi-check-circle"></i> Aprobar
+                        </button>
                     </div>
                     {% endif %}
                     
-                    <div class="mt-4">
+                    <div class="mt-4 action-bar">
                         <a href="{{ url_for('admin.reservations') }}" class="btn btn-secondary">
                             <i class="bi bi-arrow-left"></i> Volver a Reservas
                         </a>
@@ -139,11 +146,38 @@
     </div>
 </div>
 
+<!-- Modal para aprobar reserva -->
+<div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-institutional">
+            <div class="modal-header modal-header-success">
+                <h5 class="modal-title" id="approveModalLabel">
+                    <i class="bi bi-check-circle"></i> Aprobar Reserva
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.approve_reservation', reservation_id=reservation.id) }}">
+                <div class="modal-body">
+                    <p class="mb-0">¿Confirmas que deseas aprobar esta reserva?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-circle"></i> Confirmar aprobación
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal para eliminar reserva -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
+        <div class="modal-content modal-institutional">
+            <div class="modal-header modal-header-danger">
                 <h5 class="modal-title" id="deleteModalLabel">
                     <i class="bi bi-exclamation-octagon"></i> Eliminar Reserva
                 </h5>
@@ -173,8 +207,8 @@
 <!-- Modal para rechazar reserva -->
 <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
+        <div class="modal-content modal-institutional">
+            <div class="modal-header modal-header-danger">
                 <h5 class="modal-title" id="rejectModalLabel">
                     <i class="bi bi-exclamation-triangle"></i> Rechazar Reserva
                 </h5>

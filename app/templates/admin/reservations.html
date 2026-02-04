@@ -4,10 +4,15 @@
 
 {% block content %}
 <div class="container-fluid">
-    <h2 class="mb-4"><i class="bi bi-list-ul"></i> Gestión de Reservas</h2>
+    <div class="page-header">
+        <div>
+            <h2 class="page-title"><i class="bi bi-list-ul"></i> Gestión de Reservas</h2>
+            <div class="page-subtitle">Filtra, revisa y administra las solicitudes de reserva.</div>
+        </div>
+    </div>
     
     <!-- Filtros -->
-    <div class="card mb-4">
+    <div class="card section-card mb-4">
         <div class="card-body">
             <form method="GET" class="row g-3">
                 <div class="col-md-4">
@@ -24,10 +29,10 @@
     </div>
     
     <!-- Tabla de reservas -->
-    <div class="card">
+    <div class="card section-card">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                <table class="table table-striped table-hover align-middle">
                     <thead class="table-dark">
                         <tr>
                             <th>Espacio</th>
@@ -95,11 +100,11 @@
                                 <td>{{ reservation.start_time }} - {{ reservation.end_time }}</td>
                                 <td>
                                     {% if reservation.status == 'approved' %}
-                                        <span class="badge bg-success">Aprobada</span>
+                                        <span class="badge bg-success badge-status">Aprobada</span>
                                     {% elif reservation.status == 'pending' %}
-                                        <span class="badge bg-warning">Pendiente</span>
+                                        <span class="badge bg-warning badge-status">Pendiente</span>
                                     {% else %}
-                                        <span class="badge bg-danger">Rechazada</span>
+                                        <span class="badge bg-danger badge-status">Rechazada</span>
                                     {% endif %}
                                 </td>
                                 <td>

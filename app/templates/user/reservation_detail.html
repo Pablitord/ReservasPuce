@@ -4,16 +4,21 @@
 
 {% block content %}
 <div class="container">
+    <div class="page-header">
+        <div>
+            <h2 class="page-title"><i class="bi bi-file-text"></i> Detalle de mi reserva</h2>
+            <div class="page-subtitle">Información del espacio y estado de la solicitud.</div>
+        </div>
+    </div>
     <div class="row justify-content-center">
         <div class="col-md-8">
-            <div class="card shadow">
+            <div class="card shadow section-card">
                 <div class="card-header bg-primary text-white">
                     <h3 class="mb-0"><i class="bi bi-file-text"></i> Detalle de Mi Reserva</h3>
                 </div>
                 <div class="card-body">
                     <div class="mb-4">
-                        <h5>Información del Espacio</h5>
-                        <hr>
+                        <div class="section-title">Información del espacio</div>
                         {% if reservation.spaces %}
                             {% if reservation.spaces is mapping %}
                                 {% set space_obj = reservation.spaces %}
@@ -25,6 +30,7 @@
                         {% else %}
                             {% set space_obj = None %}
                         {% endif %}
+                        <div class="info-block">
                         <p><strong>Espacio:</strong> 
                             {% if space_obj %}
                                 {{ space_obj.name }}
@@ -50,30 +56,32 @@
                                 N/A
                             {% endif %}
                         </p>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <h5>Detalles de la Reserva</h5>
-                        <hr>
-                        <p><strong>Fecha:</strong> {{ reservation.date }}</p>
-                        <p><strong>Hora:</strong> {{ reservation.start_time }} - {{ reservation.end_time }}</p>
-                        <p><strong>Estado:</strong> 
-                            {% if reservation.status == 'approved' %}
-                                <span class="badge bg-success">Aprobada</span>
-                            {% elif reservation.status == 'pending' %}
-                                <span class="badge bg-warning">Pendiente</span>
-                            {% else %}
-                                <span class="badge bg-danger">Rechazada</span>
-                            {% endif %}
-                        </p>
-                        <p><strong>Justificación:</strong></p>
-                        <div class="alert alert-light">
-                            {{ reservation.justification }}
                         </div>
-                        <p><strong>Solicitada el:</strong> {{ reservation.created_at[:10] }} a las {{ reservation.created_at[11:16] }}</p>
+                    </div>
+                    <div class="section-divider"></div>
+                    <div class="mb-4">
+                        <div class="section-title">Detalles de la reserva</div>
+                        <div class="info-block">
+                            <p><strong>Fecha:</strong> {{ reservation.date }}</p>
+                            <p><strong>Hora:</strong> {{ reservation.start_time }} - {{ reservation.end_time }}</p>
+                            <p><strong>Estado:</strong> 
+                                {% if reservation.status == 'approved' %}
+                                    <span class="badge bg-success badge-status">Aprobada</span>
+                                {% elif reservation.status == 'pending' %}
+                                    <span class="badge bg-warning badge-status">Pendiente</span>
+                                {% else %}
+                                    <span class="badge bg-danger badge-status">Rechazada</span>
+                                {% endif %}
+                            </p>
+                            <p><strong>Justificación:</strong></p>
+                            <div class="alert alert-light mb-2">
+                                {{ reservation.justification }}
+                            </div>
+                            <p class="mb-0"><strong>Solicitada el:</strong> {{ reservation.created_at[:10] }} a las {{ reservation.created_at[11:16] }}</p>
+                        </div>
                     </div>
                     
-                    <div class="mt-4">
+                    <div class="mt-4 action-bar">
                         <a href="{{ url_for('user.my_reservations') }}" class="btn btn-secondary">
                             <i class="bi bi-arrow-left"></i> Volver a Mis Reservas
                         </a>

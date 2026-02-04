@@ -11,13 +11,166 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f8f9fa;
+    background-color: #f5f7fb;
+    color: #212529;
+    line-height: 1.5;
+}
+
+/* Contenedor principal */
+.main-container {
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-bottom: 40px;
+}
+
+/* Encabezados de página */
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 1.5rem;
+    padding: 16px 18px;
+    background: #fff;
+    border: 1px solid #e6eaf2;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.page-title {
+    font-weight: 600;
+    font-size: 1.6rem;
+    margin: 0;
+}
+
+.page-title i {
+    color: #0d6efd;
+}
+
+.page-subtitle {
+    font-size: 0.95rem;
+    color: #6c757d;
+}
+
+/* Secciones */
+.section-card {
+    border: 1px solid #e9ecef;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.section-card .card-body {
+    padding: 18px;
+}
+
+.section-title {
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin-bottom: 0.75rem;
+}
+
+.section-divider {
+    height: 1px;
+    background: #e6eaf2;
+    margin: 16px 0;
+}
+
+.info-block {
+    background: #f8fafc;
+    border: 1px solid #eef2f7;
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+
+.action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.form-section {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.form-section .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #1f2a44;
+}
+
+.form-section .section-title i {
+    color: #0d6efd;
+}
+
+/* Badges de estado */
+.badge-status {
+    padding: 6px 10px;
+    font-weight: 600;
+    letter-spacing: 0.1px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 999px;
+}
+
+.badge.bg-warning.badge-status {
+    color: #1f2a44;
+}
+
+/* Tablas */
+.table thead th {
+    vertical-align: middle;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* KPI cards */
+.stat-card {
+    border: 1px solid #e9ecef;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.stat-card .card-title {
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+}
+
+.stat-card .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0;
 }
 
 /* Navbar personalizado */
 .navbar-brand {
     font-weight: bold;
     font-size: 1.3rem;
+}
+
+.navbar {
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.navbar-institutional {
+    background: linear-gradient(90deg, #0d6efd, #123ea0) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.navbar-institutional .nav-link {
+    font-weight: 500;
+    letter-spacing: 0.2px;
+}
+
+.navbar-institutional .nav-link.active,
+.navbar-institutional .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
 }
 
 .navbar-nav .nav-link {
@@ -84,6 +237,11 @@ body {
     transition: box-shadow 0.3s ease;
 }
 
+.card.shadow,
+.card.section-card {
+    border-radius: 12px;
+}
+
 .card:hover {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
@@ -91,6 +249,10 @@ body {
 .card-header {
     border-radius: 10px 10px 0 0 !important;
     font-weight: 600;
+}
+
+.card-header .bi {
+    margin-right: 6px;
 }
 
 /* Estadísticas del dashboard */
@@ -115,6 +277,11 @@ body {
     color: white;
     font-weight: 600;
     border: none;
+    letter-spacing: 0.2px;
+}
+
+.table td, .table th {
+    padding: 12px 14px;
 }
 
 .table tbody tr {
@@ -130,6 +297,7 @@ body {
     padding: 6px 12px;
     font-size: 0.85rem;
     font-weight: 500;
+    border-radius: 999px;
 }
 
 /* Formularios */
@@ -137,6 +305,17 @@ body {
 .form-select:focus {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.form-control,
+.form-select {
+    border-radius: 8px;
+    border-color: #e0e6ef;
+    background-color: #fbfcff;
+}
+
+.form-control::placeholder {
+    color: #9aa4b2;
 }
 
 .form-label {
@@ -155,6 +334,29 @@ body {
 .btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #0d6efd, #1d4ed8);
+    border: none;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #0b5ed7, #1e40af);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #198754, #0f6b3e);
+    border: none;
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #157347, #0b5d35);
+}
+
+.btn-outline-primary:hover {
+    background: #0d6efd;
+    border-color: #0d6efd;
 }
 
 .btn-sm {
@@ -178,10 +380,51 @@ body {
 
 /* Calendario */
 #calendar {
-    background: white;
+    background: #fff;
     padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    border: 1px solid #e6eaf2;
+}
+
+/* Modal */
+.modal-content {
+    border-radius: 14px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+    border: none;
+}
+
+.modal-header {
+    border-bottom: 1px solid #eef2f7;
+}
+
+.modal-footer {
+    border-top: 1px solid #eef2f7;
+}
+
+.modal-institutional .modal-header {
+    color: #fff;
+    border-bottom: none;
+}
+
+.modal-header-success {
+    background: linear-gradient(135deg, #198754, #0f6b3e);
+}
+
+.modal-header-danger {
+    background: linear-gradient(135deg, #dc3545, #a11a2f);
+}
+
+.modal-institutional .modal-title {
+    font-weight: 600;
+}
+
+.modal-institutional .modal-body {
+    background: #fff;
+}
+
+.modal-institutional .modal-footer {
+    background: #f8fafc;
 }
 
 .fc-event {

@@ -12,85 +12,101 @@
                 </div>
                 <div class="card-body">
                     <form method="POST" action="{{ url_for('user.edit_reservation', reservation_id=reservation.id) }}">
-                        <div class="mb-3">
-                            <label for="floorSelectReserve" class="form-label">Filtrar por piso</label>
-                            <select class="form-select" id="floorSelectReserve">
-                                <option value="">Todos los pisos</option>
-                                <option value="planta_baja">Planta baja</option>
-                                <option value="piso_1">Piso 1</option>
-                                <option value="piso_2">Piso 2</option>
-                            </select>
-                        </div>
-                        <div class="mb-2 text-danger" id="disableNote" style="min-height: 1.2em;"></div>
-                        <div class="mb-3">
-                            <label for="space_id" class="form-label">Espacio</label>
-                            <select class="form-select" id="space_id" name="space_id" required>
-                                <option value="">Seleccione un espacio</option>
-                                {% for group in spaces_by_floor %}
-                                <optgroup label="{{ group.label }}" data-floor="{{ group.key }}">
-                                    {% if group.spaces %}
-                                        {% for space in group.spaces %}
-                                        <option value="{{ space.id }}" data-floor="{{ space.resolved_floor or group.key }}" {% if selected_space_id == space.id %}selected{% endif %}>
-                                            {% set lab_cat = space.lab_category %}
-                                            {% if space.type == 'laboratorio' and lab_cat %}
-                                                {% if lab_cat == 'computacion' %}
-                                                    {% set type_label = 'Laboratorio (Computación)' %}
-                                                {% elif lab_cat == 'medicina' %}
-                                                    {% set type_label = 'Laboratorio (Medicina)' %}
+                        <div class="form-section">
+                            <div class="section-title"><i class="bi bi-building"></i> Selección de espacio</div>
+                            <div class="mb-3">
+                                <label for="floorSelectReserve" class="form-label">Filtrar por piso</label>
+                                <select class="form-select" id="floorSelectReserve">
+                                    <option value="">Todos los pisos</option>
+                                    <option value="planta_baja">Planta baja</option>
+                                    <option value="piso_1">Piso 1</option>
+                                    <option value="piso_2">Piso 2</option>
+                                </select>
+                            </div>
+                            <div class="mb-2 text-danger" id="disableNote" style="min-height: 1.2em;"></div>
+                            <div class="mb-3">
+                                <label for="space_id" class="form-label">Espacio</label>
+                                <select class="form-select" id="space_id" name="space_id" required>
+                                    <option value="">Seleccione un espacio</option>
+                                    {% for group in spaces_by_floor %}
+                                    <optgroup label="{{ group.label }}" data-floor="{{ group.key }}">
+                                        {% if group.spaces %}
+                                            {% for space in group.spaces %}
+                                            <option value="{{ space.id }}" data-floor="{{ space.resolved_floor or group.key }}" {% if selected_space_id == space.id %}selected{% endif %}>
+                                                {% set lab_cat = space.lab_category %}
+                                                {% if space.type == 'laboratorio' and lab_cat %}
+                                                    {% if lab_cat == 'computacion' %}
+                                                        {% set type_label = 'Laboratorio (Computación)' %}
+                                                    {% elif lab_cat == 'medicina' %}
+                                                        {% set type_label = 'Laboratorio (Medicina)' %}
+                                                    {% else %}
+                                                        {% set type_label = 'Laboratorio' %}
+                                                    {% endif %}
                                                 {% else %}
-                                                    {% set type_label = 'Laboratorio' %}
+                                                    {% set type_label = space.type|title %}
                                                 {% endif %}
-                                            {% else %}
-                                                {% set type_label = space.type|title %}
-                                            {% endif %}
-                                            {{ space.name }} - {{ type_label }} (Capacidad: {{ space.capacity }})
-                                        </option>
-                                        {% endfor %}
-                                    {% else %}
-                                        <option value="" disabled>(Sin espacios)</option>
-                                    {% endif %}
-                                </optgroup>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <div class="card">
-                                <div class="card-header">
-                                    <i class="bi bi-info-circle"></i> Horario de clases del espacio seleccionado
-                                </div>
-                                <div class="card-body" id="scheduleContainer">
-                                    <p class="text-muted mb-0">Selecciona un espacio y una fecha para ver si está ocupado por clases.</p>
-                                </div>
+                                                {{ space.name }} - {{ type_label }} (Capacidad: {{ space.capacity }})
+                                            </option>
+                                            {% endfor %}
+                                        {% else %}
+                                            <option value="" disabled>(Sin espacios)</option>
+                                        {% endif %}
+                                    </optgroup>
+                                    {% endfor %}
+                                </select>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <div class="card">
-                                <div class="card-header">
-                                    <i class="bi bi-calendar-event"></i> Reservas del día (pendientes/aprobadas)
-                                </div>
-                                <div class="card-body" id="bookingsContainer">
-                                    <p class="text-muted mb-0">Selecciona un espacio y una fecha para ver reservas existentes.</p>
+
+                        <div class="form-section">
+                            <div class="section-title"><i class="bi bi-info-circle"></i> Información de disponibilidad</div>
+                            <div class="mb-3">
+                                <div class="card section-card">
+                                    <div class="card-header">
+                                        <i class="bi bi-info-circle"></i> Horario de clases del espacio seleccionado
+                                    </div>
+                                    <div class="card-body" id="scheduleContainer">
+                                        <p class="text-muted mb-0">Selecciona un espacio y una fecha para ver si está ocupado por clases.</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label for="date" class="form-label">Fecha</label>
-                                <input type="date" class="form-control" id="date" name="date" required min="{{ min_date }}" value="{{ selected_date if selected_date }}">
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="start_time" class="form-label">Hora de Inicio</label>
-                                <input type="time" class="form-control" id="start_time" name="start_time" required value="{{ selected_start if selected_start }}">
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="end_time" class="form-label">Hora de Fin</label>
-                                <input type="time" class="form-control" id="end_time" name="end_time" required value="{{ selected_end if selected_end }}">
+                            <div class="mb-3">
+                                <div class="card section-card">
+                                    <div class="card-header">
+                                        <i class="bi bi-calendar-event"></i> Reservas del día (pendientes/aprobadas)
+                                    </div>
+                                    <div class="card-body" id="bookingsContainer">
+                                        <p class="text-muted mb-0">Selecciona un espacio y una fecha para ver reservas existentes.</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label for="justification" class="form-label">Justificación</label>
-                            <textarea class="form-control" id="justification" name="justification" rows="4" required placeholder="Describa el motivo de la reserva...">{{ justification_val if justification_val }}</textarea>
+
+                        <div class="form-section">
+                            <div class="section-title"><i class="bi bi-calendar-date"></i> Fecha y horario</div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="date" class="form-label">Fecha</label>
+                                    <input type="date" class="form-control" id="date" name="date" required min="{{ min_date }}" value="{{ selected_date if selected_date }}">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="start_time" class="form-label">Hora de Inicio</label>
+                                    <input type="time" class="form-control" id="start_time" name="start_time" required value="{{ selected_start if selected_start }}">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="end_time" class="form-label">Hora de Fin</label>
+                                    <input type="time" class="form-control" id="end_time" name="end_time" required value="{{ selected_end if selected_end }}">
+                                </div>
+                            </div>
                         </div>
+
+                        <div class="form-section">
+                            <div class="section-title"><i class="bi bi-card-text"></i> Justificación</div>
+                            <div class="mb-3">
+                                <label for="justification" class="form-label">Justificación</label>
+                                <textarea class="form-control" id="justification" name="justification" rows="4" required placeholder="Describa el motivo de la reserva...">{{ justification_val if justification_val }}</textarea>
+                            </div>
+                        </div>
+
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                             <a href="{{ url_for('user.reservation_detail', reservation_id=reservation.id) }}" class="btn btn-secondary">
                                 <i class="bi bi-arrow-left"></i> Cancelar

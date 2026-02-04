@@ -29,6 +29,8 @@
         right: 24px;
         z-index: 2000;
         box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+        background: linear-gradient(135deg, #0d6efd, #1d4ed8);
+        border: none;
     }
     #chatbot-messages {
         max-height: 300px;
@@ -60,54 +62,61 @@
 
 {% block content %}
 <div class="container">
-    <h2 class="mb-4"><i class="bi bi-calendar3"></i> Calendario de Reservas</h2>
+    <div class="page-header">
+        <div>
+            <h2 class="page-title"><i class="bi bi-calendar3"></i> Calendario de Reservas</h2>
+            <div class="page-subtitle">Consulta disponibilidad y gestiona tus reservas en un solo lugar.</div>
+        </div>
+    </div>
     
-    <div class="space-selector">
-        <div class="row g-2">
-            <div class="col-md-4">
-                <label for="floorSelect" class="form-label">Filtrar por piso:</label>
-                <select id="floorSelect" class="form-select">
-                    <option value="">Todos los pisos</option>
-                    <option value="planta_baja">Planta baja</option>
-                    <option value="piso_1">Piso 1</option>
-                    <option value="piso_2">Piso 2</option>
-                </select>
-            </div>
-            <div class="col-md-8">
-                <label for="spaceSelect" class="form-label">Seleccionar Espacio:</label>
-                <select id="spaceSelect" class="form-select">
-                    <option value="">Todos los espacios</option>
-                    {% for group in spaces_by_floor %}
-                    <optgroup label="{{ group.label }}" data-floor="{{ group.key }}">
-                        {% if group.spaces %}
-                            {% for space in group.spaces %}
-                            <option value="{{ space.id }}" data-floor="{{ space.resolved_floor or group.key }}">
-                                {% set lab_cat = space.lab_category %}
-                                {% if space.type == 'laboratorio' and lab_cat %}
-                                    {% if lab_cat == 'computacion' %}
-                                        {% set type_label = 'Laboratorio (Computación)' %}
-                                    {% elif lab_cat == 'medicina' %}
-                                        {% set type_label = 'Laboratorio (Medicina)' %}
+    <div class="card section-card space-selector">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="floorSelect" class="form-label">Filtrar por piso</label>
+                    <select id="floorSelect" class="form-select">
+                        <option value="">Todos los pisos</option>
+                        <option value="planta_baja">Planta baja</option>
+                        <option value="piso_1">Piso 1</option>
+                        <option value="piso_2">Piso 2</option>
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label for="spaceSelect" class="form-label">Seleccionar espacio</label>
+                    <select id="spaceSelect" class="form-select">
+                        <option value="">Todos los espacios</option>
+                        {% for group in spaces_by_floor %}
+                        <optgroup label="{{ group.label }}" data-floor="{{ group.key }}">
+                            {% if group.spaces %}
+                                {% for space in group.spaces %}
+                                <option value="{{ space.id }}" data-floor="{{ space.resolved_floor or group.key }}">
+                                    {% set lab_cat = space.lab_category %}
+                                    {% if space.type == 'laboratorio' and lab_cat %}
+                                        {% if lab_cat == 'computacion' %}
+                                            {% set type_label = 'Laboratorio (Computación)' %}
+                                        {% elif lab_cat == 'medicina' %}
+                                            {% set type_label = 'Laboratorio (Medicina)' %}
+                                        {% else %}
+                                            {% set type_label = 'Laboratorio' %}
+                                        {% endif %}
                                     {% else %}
-                                        {% set type_label = 'Laboratorio' %}
+                                        {% set type_label = space.type|title %}
                                     {% endif %}
-                                {% else %}
-                                    {% set type_label = space.type|title %}
-                                {% endif %}
-                                {{ space.name }} ({{ type_label }})
-                            </option>
-                            {% endfor %}
-                        {% else %}
-                            <option value="" disabled>(Sin espacios)</option>
-                        {% endif %}
-                    </optgroup>
-                    {% endfor %}
-                </select>
+                                    {{ space.name }} ({{ type_label }})
+                                </option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="" disabled>(Sin espacios)</option>
+                            {% endif %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
         </div>
     </div>
     
-    <div id="calendar"></div>
+    <div id="calendar" class="mt-3"></div>
 </div>
 
 <!-- Botón flotante chatbot -->
@@ -117,7 +126,7 @@
 
 <!-- Modal chatbot -->
 <div class="modal fade" id="chatbotModal" tabindex="-1" aria-labelledby="chatbotModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="chatbotModalLabel"><i class="bi bi-robot"></i> Asistente de consultas</h5>
