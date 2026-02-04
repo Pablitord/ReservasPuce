@@ -173,6 +173,17 @@ body {
     border-radius: 6px;
 }
 
+.navbar-center .nav-link {
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+@media (min-width: 992px) {
+    .navbar-center {
+        gap: 4px;
+    }
+}
+
 .navbar-nav .nav-link {
     transition: all 0.3s ease;
 }

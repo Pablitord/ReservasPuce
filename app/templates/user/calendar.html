@@ -57,6 +57,43 @@
     }
     .chatbot-chip--busy { background: #ffe3e3; border-color: #ffc9c9; }
     .chatbot-chip--free { background: #e6fcf5; border-color: #c3fae8; }
+    .chat-message {
+        display: flex;
+        margin-bottom: 10px;
+    }
+    .chat-message.user {
+        justify-content: flex-end;
+    }
+    .chat-bubble {
+        max-width: 85%;
+        padding: 8px 12px;
+        border-radius: 12px;
+        border: 1px solid #e6eaf2;
+        background: #fff;
+        line-height: 1.35;
+    }
+    .chat-message.user .chat-bubble {
+        background: #e7f1ff;
+        border-color: #cfe2ff;
+        color: #0b5ed7;
+    }
+    .chat-message.bot .chat-bubble {
+        background: #f8f9fa;
+        border-color: #eef2f7;
+    }
+    .chat-bubble .badge {
+        margin-right: 6px;
+    }
+    .chatbot-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 6px;
+    }
+    .chatbot-chips .btn {
+        border-radius: 999px;
+        padding: 4px 10px;
+    }
 </style>
 {% endblock %}
 
@@ -245,15 +282,15 @@
         function appendMessage(text, sender) {
             if (!messages) return;
             const div = document.createElement('div');
-            div.className = sender === 'user' ? 'text-end mb-2' : 'text-start mb-2';
-            const badge = sender === 'user' ? '<span class="badge bg-primary me-1">Tú</span>' : '<span class="badge bg-secondary me-1">Bot</span>';
+            div.className = sender === 'user' ? 'chat-message user' : 'chat-message bot';
+            const badge = sender === 'user' ? '<span class="badge bg-primary">Tú</span>' : '<span class="badge bg-secondary">Bot</span>';
             const safeText = (text || '')
                 .toString()
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/\n/g, '<br>');
-            div.innerHTML = `${badge}${safeText}`;
+            div.innerHTML = `<div class="chat-bubble">${badge}${safeText}</div>`;
             messages.appendChild(div);
             messages.scrollTop = messages.scrollHeight;
         }
@@ -261,7 +298,7 @@
         function appendChips(chips, onClick) {
             if (!messages || !chips) return;
             const wrap = document.createElement('div');
-            wrap.className = 'mb-2';
+            wrap.className = 'chatbot-chips';
             chips.forEach(ch => {
                 const btn = document.createElement('button');
                 btn.type = 'button';
