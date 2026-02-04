@@ -113,6 +113,7 @@ class ChatbotService:
                     pass
         return None
 
+
     def _find_space(self, text: str) -> Optional[Dict[str, Any]]:
         spaces = self.space_service.get_all_spaces()
         def norm(s: str) -> str:
