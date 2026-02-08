@@ -18,6 +18,16 @@ def _get_deepseek_slots(question: str, context: Optional[Dict[str, Any]]) -> Opt
         return None
 
 
+def _normalize_for_intent(text: str) -> str:
+    """Quita acentos para que 'cuántas' y 'cuantas' coincidan al detectar intents."""
+    if not text:
+        return ""
+    t = text.lower()
+    for a, b in [("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u"), ("ñ", "n")]:
+        t = t.replace(a, b)
+    return t
+
+
 class ChatbotService:
     """
     Chatbot híbrido: DeepSeek interpreta la pregunta (intent + slots); si falla o sin API key
@@ -131,8 +141,9 @@ class ChatbotService:
             if t_norm and t_norm in norm(name):
                 return sp
 
-        # intento por palabras normalizadas
-        tokens = [tok for tok in t.split() if tok and len(tok) >= 3]
+        # intento por palabras normalizadas (quitar signos de puntuación para "auditorio?" -> "auditorio")
+        raw_tokens = [tok.strip(".,?!;:()") for tok in t.split() if tok]
+        tokens = [tok for tok in raw_tokens if len(tok) >= 3]
         for sp in spaces:
             name = (sp.get("name") or "").lower()
             name_norm = norm(name)
@@ -288,14 +299,38 @@ class ChatbotService:
 
         if self._is_help_like(ql):
             return ("ayuda", date_str, sp_check, {}, context_merge, None)
-        if any(k in ql for k in ["capacidad", "cuántas personas", "cuantos caben", "cuántos caben"]):
+        # Capacidad: muchas formas de preguntar (con y sin acentos)
+        ql_norm = _normalize_for_intent(ql)
+        capacidad_keys = [
+            "capacidad", "cuantas personas", "cuántas personas", "cuantos caben", "cuántos caben",
+            "personas caben", "cuantas caben", "cuántas caben", "cuantos entran", "cuántos entran",
+            "cuantas entran", "cuántas entran", "capacidad del", "capacidad de la", "capacidad de",
+            "que capacidad", "qué capacidad", "cuantos personas", "cuántos personas",
+            "cuantos caben", "cuál es la capacidad", "cual es la capacidad", "cuanta capacidad",
+            "cuánta capacidad", "tiene capacidad", "cuantos asientos", "cuántos asientos",
+        ]
+        if any(k in ql_norm for k in capacidad_keys):
             return ("capacidad", date_str, self._find_space(ql), {}, context_merge, None)
-        if any(k in ql for k in ["ocupado", "ocupación", "reservas", "reservado", "bloques", "horario", "disponibilidad"]):
+        # Ocupación
+        ocupacion_keys = [
+            "ocupado", "ocupacion", "ocupación", "reservas", "reservado", "bloques", "horario",
+            "disponibilidad", "esta libre", "está libre", "esta ocupado", "está ocupado",
+            "tiene reservas", "hay reservas", "que horarios", "qué horarios", "en que horario",
+            "en qué horario", "horarios del", "horarios de la", "disponible el", "disponible la",
+        ]
+        if any(k in ql_norm for k in ocupacion_keys):
             sp = sp_check or last_space
             if not date_str and last_intent == "libres" and last_date:
                 date_str = last_date
             return ("ocupacion", date_str, sp, {}, context_merge, None)
-        is_libres = any(k in ql for k in ["libre", "disponible", "libres", "disponibles", "disponibilidad"]) or (last_intent == "libres")
+        # Espacios libres
+        libres_keys = [
+            "libre", "disponible", "libres", "disponibles", "disponibilidad",
+            "que espacios", "qué espacios", "espacios libres", "espacios disponibles",
+            "que hay libre", "qué hay libre", "cuales estan libres", "cuáles están libres",
+            "que aulas", "qué aulas", "aulas libres", "salas libres",
+        ]
+        is_libres = any(k in ql_norm for k in libres_keys) or (last_intent == "libres")
         if is_libres:
             sp_specific = sp_check or self._find_space(ql)
             if not date_str and last_intent == "libres" and last_date:
