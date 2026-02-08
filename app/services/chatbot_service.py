@@ -153,6 +153,27 @@ class ChatbotService:
                 return sp
         return None
 
+    def _find_all_spaces_matching(self, text: str) -> List[Dict[str, Any]]:
+        """Devuelve todos los espacios cuyo nombre coincide con algún token del texto (ej. 'auditorio' -> ambos auditorios)."""
+        spaces = self.space_service.get_all_spaces()
+        def norm(s: str) -> str:
+            return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+        t = (text or "").lower()
+        raw_tokens = [tok.strip(".,?!;:()") for tok in t.split() if tok]
+        tokens = [tok for tok in raw_tokens if len(tok) >= 3]
+        if not tokens:
+            return []
+        found = []
+        seen_ids = set()
+        for sp in spaces:
+            name = (sp.get("name") or "").lower()
+            name_norm = norm(name)
+            if any(tok and (tok in name or norm(tok) in name_norm) for tok in tokens):
+                if sp.get("id") not in seen_ids:
+                    seen_ids.add(sp.get("id"))
+                    found.append(sp)
+        return found
+
     def _format_intervals(self, items: List[Tuple[str, str, str]]) -> str:
         # items: (tipo, start, end)
         if not items:
@@ -379,14 +400,27 @@ class ChatbotService:
             }
 
         if intent == "capacidad":
-            sp = space_obj or self._find_space(ql)
-            if not sp:
-                return {"answer": "No encontré el espacio, especifica el nombre (ej: A-002).", "data": {}}
-            answer = (
-                f"{sp.get('name')}: capacidad {sp.get('capacity', 'desconocida')}, "
-                f"tipo {sp.get('type', '-')}, piso {sp.get('floor', '-')}"
-            )
-            return {"answer": _append_secondary_hint(answer), "data": {"space": sp}, "context": {"last_space": sp}}
+            # Priorizar lista de coincidencias para "auditorio" -> ambos auditorios
+            if space_obj:
+                candidates = [space_obj]
+            else:
+                candidates = self._find_all_spaces_matching(ql)
+            if not candidates:
+                one = self._find_space(ql)
+                if one:
+                    candidates = [one]
+            if len(candidates) > 1:
+                lines = [f"{s.get('name')}: capacidad {s.get('capacity', 'desconocida')}" for s in candidates]
+                answer = "Hay varios que coinciden:\n" + "\n".join(lines)
+                return {"answer": _append_secondary_hint(answer), "data": {"spaces": candidates}}
+            if len(candidates) == 1:
+                sp = candidates[0]
+                answer = (
+                    f"{sp.get('name')}: capacidad {sp.get('capacity', 'desconocida')}, "
+                    f"tipo {sp.get('type', '-')}, piso {sp.get('floor', '-')}"
+                )
+                return {"answer": _append_secondary_hint(answer), "data": {"space": sp}, "context": {"last_space": sp}}
+            return {"answer": "No encontré el espacio, especifica el nombre (ej: A-002, Auditorio Principal).", "data": {}}
 
         if intent == "ocupacion":
             sp = space_obj or last_space
