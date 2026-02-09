@@ -31,6 +31,7 @@ class Config:
     SMTP_FROM = os.environ.get('SMTP_FROM') or ''
     SMTP_USE_TLS = os.environ.get('SMTP_USE_TLS', 'True') == 'True'
     SMTP_USE_SSL = os.environ.get('SMTP_USE_SSL', 'False') == 'True'
+    
 
     # Chatbot híbrido: DeepSeek solo interpreta (intent + slots). Respuesta final siempre desde Supabase.
     # Si DeepSeek falla (créditos, red, etc.) el bot sigue con rule-based.
