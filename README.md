@@ -1,125 +1,170 @@
-# Sistema de Reservas PUCE
+# Sistema de Reservas de Espacios Universitarios – PUCE
 
-Sistema web para la gestión de reservas de espacios universitarios (aulas, laboratorios y auditorio) de la Universidad.
+Sistema web para la gestión de reservas de espacios universitarios (aulas, laboratorios y auditorios) de la PUCE. Permite a los usuarios solicitar reservas, ver disponibilidad en un calendario interactivo y recibir notificaciones; los administradores aprueban o rechazan solicitudes, gestionan horarios de clases y consultan estadísticas.
 
-## Características
+---
 
-- 🔐 Autenticación de usuarios (login/registro)
-- 📅 Calendario visual para ver disponibilidad de espacios
-- 📝 Solicitud de reservas con justificación
-- 🔔 Sistema de notificaciones en tiempo real
-- 👨‍💼 Panel de administración para aprobar/rechazar reservas
-- 📊 Dashboard con estadísticas
+## Descripción
+
+El sistema centraliza y automatiza la reserva de espacios: evita conflictos de horarios, da trazabilidad y mejora la comunicación entre usuarios y administración. La base de datos está en la nube (Supabase, PostgreSQL) y la aplicación sigue una arquitectura en capas (frontend → rutas → servicios → repositorios → BD).
+
+---
+
+## Características principales
+
+- **Autenticación:** registro, login y verificación de cuenta por correo (código).
+- **Calendario:** vista mensual con FullCalendar, filtros por piso y espacio; reservas aprobadas y pendientes con colores.
+- **Reservas:** solicitud con justificación, validación de conflictos de horario y con horarios de clases; edición y cancelación de reservas pendientes.
+- **Notificaciones:** en la app (dropdown, actualización cada 30 s) y por correo (confirmación, aprobación/rechazo, aviso a admins, recordatorios del día).
+- **Panel de administración:** dashboard, aprobar/rechazar reservas (con razón obligatoria), CRUD de horarios de clases, bitácora de eliminaciones, creación de administradores.
+- **Chatbot:** asistente de consultas (capacidad, ocupación, espacios libres) en lenguaje natural o por botones; respuestas con datos reales de la BD (híbrido DeepSeek + reglas).
+
+---
 
 ## Tecnologías
 
-- **Backend**: Flask (Python)
-- **Base de datos**: Supabase (PostgreSQL)
-- **Frontend**: HTML, CSS, JavaScript, Bootstrap 5
-- **Calendario**: FullCalendar.js
+| Área        | Tecnología                          |
+|------------|--------------------------------------|
+| Backend    | Flask 3 (Python)                     |
+| Base de datos | Supabase (PostgreSQL en la nube)  |
+| Frontend   | HTML, Jinja2, Bootstrap 5, JavaScript |
+| Calendario | FullCalendar.js                      |
+| Correo     | SMTP (configurable en `.env`)        |
+| Chatbot    | Opcional: DeepSeek API; fallback por reglas |
+
+---
 
 ## Requisitos
 
 - Python 3.8+
-- Cuenta de Supabase
-- pip (gestor de paquetes de Python)
+- Cuenta de Supabase (proyecto con URL y API key)
+- Opcional: servidor SMTP para correos; API key de DeepSeek para el chatbot
 
-## Instalación
+---
 
-1. Clonar el repositorio o navegar al directorio del proyecto
+## Instalación rápida
 
-2. Crear un entorno virtual (recomendado):
-```bash
-python -m venv venv
-source venv/bin/activate  # En Windows: venv\Scripts\activate
-```
-
-3. Instalar dependencias:
-```bash
-cd app
-pip install -r requirements.txt
-```
-
-4. Configurar variables de entorno:
-   - Crear un archivo `.env` en la raíz del proyecto con:
+1. **Clonar o entrar al proyecto**
+   ```bash
+   cd ReservasPuce
    ```
-   SECRET_KEY=tu-clave-secreta-aqui
+
+2. **Entorno virtual**
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate          # Windows
+   # source venv/bin/activate     # Linux/macOS
+   ```
+
+3. **Dependencias**
+   ```bash
+   cd app
+   pip install -r requirements.txt
+   cd ..
+   ```
+
+4. **Variables de entorno**  
+   Crear `.env` en la **raíz** del proyecto:
+   ```env
+   SECRET_KEY=tu-clave-secreta-segura
    SUPABASE_URL=https://tu-proyecto.supabase.co
-   SUPABASE_KEY=tu-clave-supabase-aqui
+   SUPABASE_KEY=tu-anon-key-de-supabase
    FLASK_DEBUG=True
    HOST=127.0.0.1
-   PORT=500
+   PORT=5000
    ```
+   Opcional (correos): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_USE_TLS`.  
+   Opcional (chatbot): `DEEPSEEK_API_KEY`.
 
-5. Configurar la base de datos:
-   - Ir a Supabase Dashboard
-   - Ejecutar el script SQL en `app/scripts/01_schema.sql` en el SQL Editor
+5. **Base de datos**  
+   En el panel de Supabase → SQL Editor, ejecutar el contenido de `app/scripts/01_schema.sql`.
 
-6. Ejecutar la aplicación:
-```bash
-python run.py
-```
+6. **Ejecutar**
+   ```bash
+   cd app
+   python run.py
+   ```
+   Abrir en el navegador: `http://127.0.0.1:5000`.
 
-7. Acceder a la aplicación:
-   - Abrir navegador en `http://127.0.0.1:5000`
+---
 
-## Estructura del Proyecto
+## Credenciales por defecto
+
+Tras ejecutar el schema SQL se crea un administrador:
+
+- **Email:** `admin@puce.edu.ec`  
+- **Contraseña:** `admin123`  
+
+*(Cambiar en producción.)*
+
+---
+
+## Estructura del proyecto
 
 ```
 ReservasPuce/
 ├── app/
-│   ├── __init__.py          # Configuración de Flask
-│   ├── config.py            # Configuración de la app
-│   ├── run.py               # Punto de entrada
-│   ├── deps.py              # Dependencias y decoradores
-│   ├── routes/              # Rutas del backend
-│   ├── services/            # Lógica de negocio
+│   ├── __init__.py          # Factory de Flask, blueprints
+│   ├── config.py            # Configuración (env, Supabase, SMTP, DeepSeek)
+│   ├── deps.py              # Decoradores @login_required, @admin_required
+│   ├── routes/              # Rutas HTTP (auth, user, admin, notifications)
+│   ├── services/            # Lógica de negocio (auth, reservas, chatbot, email, etc.)
 │   ├── repositories/        # Acceso a datos (Supabase)
-│   ├── templates/           # Templates HTML
-│   ├── static/              # Archivos estáticos (CSS, JS)
-│   └── scripts/             # Scripts SQL
-├── api/
-└── README.md
+│   │   └── supabase/        # Cliente y repos por tabla
+│   ├── templates/           # Vistas HTML (Jinja2)
+│   ├── static/              # CSS, JavaScript
+│   └── scripts/             # 01_schema.sql, send_reservation_reminders.py
+├── .env                     # Variables de entorno (no subir a git)
+├── requirements.txt
+├── README.md                # Este archivo
+├── SETUP_ENV.md             # Guía detallada de instalación (venv, .env)
+├── CONTEXTO_PROYECTO.md     # Documentación técnica completa
+└── DOCUMENTACION_RUBRICA.md # Referencia para rúbricas (BD en la nube, IHC)
 ```
 
-## Credenciales por Defecto
+---
 
-Después de ejecutar el schema SQL, se crea un usuario administrador:
-- Email: `admin@puce.edu.ec`
-- Contraseña: `admin123`
+## Funcionalidades por rol
 
-## Funcionalidades
+### Usuario
+- Registro, verificación por correo e inicio de sesión.
+- Calendario con disponibilidad y filtros.
+- Solicitar, editar y cancelar reservas pendientes.
+- Ver mis reservas y detalle.
+- Notificaciones en la app y por correo (confirmación, aprobación/rechazo).
+- Chatbot: capacidad, ocupación y espacios libres (escrito o por botones).
 
-### Para Usuarios
-- Registro e inicio de sesión
-- Ver calendario de espacios disponibles
-- Solicitar reserva de espacios
-- Ver estado de sus reservas
-- Recibir notificaciones de aprobación/rechazo
+### Administrador
+- Dashboard con estadísticas (reservas, espacios, usuarios).
+- Listar y filtrar reservas; aprobar o rechazar (con razón obligatoria).
+- Gestionar horarios de clases por espacio.
+- Bitácora de eliminaciones.
+- Crear otros administradores.
+- Notificaciones de nuevas solicitudes (en app y por correo).
 
-### Para Administradores
-- Dashboard con estadísticas
-- Ver todas las solicitudes de reserva
-- Aprobar o rechazar reservas
-- Ver detalles completos de cada reserva
-- Recibir notificaciones de nuevas solicitudes
+---
 
-## Notas de Desarrollo
+## Recordatorios por correo
 
-- El sistema utiliza sesiones para mantener el estado del usuario
-- Las notificaciones se actualizan cada 30 segundos
-- El calendario muestra reservas aprobadas y pendientes
-- Se valida que no haya conflictos de horario al crear reservas
+El script `app/scripts/send_reservation_reminders.py` envía recordatorios a usuarios con reserva **aprobada** para el día. Ejecución manual:
 
-## Próximas Mejoras
+```bash
+cd app
+python scripts/send_reservation_reminders.py
+```
 
-- [ ] Edición de reservas
-- [ ] Cancelación de reservas
-- [ ] Filtros avanzados en el calendario
-- [ ] Exportar calendario
-- [ ] Notificaciones por email
-- [ ] Historial de cambios
+Para envío automático diario, programar con cron (Linux/macOS) o Programador de tareas (Windows).
+
+---
+
+## Documentación adicional
+
+- **SETUP_ENV.md** – Pasos detallados de entorno virtual y `.env` (incl. Windows).
+- **CONTEXTO_PROYECTO.md** – Arquitectura, flujos, endpoints, servicios y notas técnicas.
+- **DOCUMENTACION_RUBRICA.md** – Contenido alineado con rúbricas de Base de Datos en la Nube e Interacción Humano-Computador.
+
+---
 
 ## Licencia
 
-Este proyecto es de uso interno para la Universidad.
+Proyecto de uso interno para la Universidad.
